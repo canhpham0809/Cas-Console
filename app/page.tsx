@@ -3,7 +3,7 @@
 import { useMemo, useState, type CSSProperties } from "react";
 
 type AppData = { id: string; name: string; short: string; color: string; environment: string };
-type AnalyticsTab = "Connection" | "Transaction" | "Identity" | "Balance" | "QRPay" | "VirtualAccount" | "Transfer" | "eKYC" | "Invoice" | "BalanceHook";
+type AnalyticsTab = "Connection" | "Transaction" | "Identity" | "Balance" | "QRPay" | "VirtualAccount" | "BalanceHook" | "Transfer" | "eKYC" | "Invoice";
 type DetailRow = { requestId: string; grant: string; user: string; bank: string; scopes: string; calls: string; status: string; last: string; cost: string; endpoint: string; http: string; latency: string; webhook?: string };
 type LogRecord = {
   requestId: string;
@@ -28,7 +28,7 @@ const apps: AppData[] = [
 const navGroups = [
   { label: "", items: [{ icon: "⌂", label: "Tổng quan" }] },
   { label: "DEVELOPER", items: [{ icon: "⌁", label: "API keys" }, { icon: "↗", label: "API" }, { icon: "◫", label: "Webhooks" }, { icon: "≡", label: "Logs" }] },
-  { label: "HOẠT ĐỘNG", items: [{ icon: "◎", label: "Connections" }, { icon: "↗", label: "Usage" }, { icon: "◇", label: "Grant debugger" }] },
+  { label: "HOẠT ĐỘNG", items: [{ icon: "◎", label: "Grants" }, { icon: "↗", label: "Usage" }, { icon: "◇", label: "Grant debugger" }] },
   { label: "CẤU HÌNH", items: [{ icon: "⚙", label: "Cài đặt App" }, { icon: "♙", label: "Thành viên" }] },
 ];
 
@@ -39,18 +39,19 @@ const baseRows: DetailRow[] = [
   { requestId: "req_6P3RF82W", grant: "grt_6P3RF82K", user: "Đỗ Tuấn Nam", bank: "ACB", scopes: "VirtualAccount · Invoice", calls: "7,906", status: "Deleted", last: "Hôm qua", cost: "₫395,300", endpoint: "/v2/virtual-accounts", http: "429", latency: "602 ms" },
 ];
 
-const scopeConfig: Record<Exclude<AnalyticsTab, "Connection" | "BalanceHook">, { grants: string; costGrants: string; active: string; calls: string; cost: string; endpoints: string[]; price: number; webhook?: boolean }> = {
-  Transaction: { grants: "2.416", costGrants: "750.000 VNĐ", active: "2.382", calls: "426.800", cost: "21.340.000", endpoints: ["/v2/transactions", "/v2/transactions/sync", "/v2/transactions/{id}"], price: 50 },
-  Identity: { grants: "1.842", costGrants: "750.000 VNĐ", active: "1.806", calls: "204.100", cost: "12.250.000", endpoints: ["/v2/identity", "/v2/identity/profile", "/v2/accounts/owner"], price: 60 },
-  Balance: { grants: "2.204", costGrants: "750.000 VNĐ", active: "2.171", calls: "281.400", cost: "9.850.000", endpoints: ["/v2/balance", "/v2/accounts", "/v2/accounts/{id}/balance"], price: 35 },
-  QRPay: { grants: "986", costGrants: "750.000 VNĐ", active: "954", calls: "146.700", cost: "5.870.000", endpoints: ["/v2/qr/create", "/v2/qr/{id}", "/v2/qr/status"], price: 40, webhook: true },
-  VirtualAccount: { grants: "742", costGrants: "750.000 VNĐ", active: "716", calls: "98.400", cost: "4.920.000", endpoints: ["/v2/virtual-accounts", "/v2/virtual-accounts/{id}", "/v2/virtual-accounts/transactions"], price: 50, webhook: true },
-  Transfer: { grants: "1.126", costGrants: "750.000 VNĐ", active: "1.084", calls: "108.200", cost: "8.660.000", endpoints: ["/v2/transfers", "/v2/transfers/{id}", "/v2/transfers/confirm"], price: 80 },
+const scopeConfig: Record<Exclude<AnalyticsTab, "Connection">, { grants: string; costGrants: string; active: string; calls: string; cost: string; endpoints: string[]; price: number; webhook?: boolean }> = {
+  Transaction: { grants: "68", costGrants: "6.200.000 VNĐ", active: "62", calls: "426.800", cost: "19.004.000", endpoints: ["/v2/transactions", "/v2/transactions/sync", "/v2/transactions/{id}"], price: 50 },
+  Identity: { grants: "1.842", costGrants: "750.000 VNĐ", active: "1.806", calls: "204.100", cost: "12.246.000", endpoints: ["/v2/identity", "/v2/identity/profile", "/v2/accounts/owner"], price: 60 },
+  Balance: { grants: "2.204", costGrants: "750.000 VNĐ", active: "2.171", calls: "281.400", cost: "9.849.000", endpoints: ["/v2/balance", "/v2/accounts", "/v2/accounts/{id}/balance"], price: 35 },
+  QRPay: { grants: "986", costGrants: "750.000 VNĐ", active: "954", calls: "146.700", cost: "14.280.000", endpoints: ["/v2/qr/create", "/v2/qr/{id}", "/v2/qr/status"], price: 40, webhook: true },
+  VirtualAccount: { grants: "742", costGrants: "750.000 VNĐ", active: "716", calls: "98.400", cost: "1.520.000", endpoints: ["/v2/virtual-accounts", "/v2/virtual-accounts/{id}", "/v2/virtual-accounts/transactions"], price: 50, webhook: true },
+  BalanceHook: { grants: "2.204", costGrants: "750.000 VNĐ", active: "2.171", calls: "281.400", cost: "84.270.000", endpoints: ["/v2/balance/webhook", "/v2/balance/events"], price: 35, webhook: true },
+  Transfer: { grants: "1.126", costGrants: "750.000 VNĐ", active: "1.084", calls: "108.200", cost: "215.600.000", endpoints: ["/v2/transfers", "/v2/transfers/{id}", "/v2/transfers/confirm"], price: 80 },
   eKYC: { grants: "1.508", costGrants: "750.000 VNĐ", active: "1.492", calls: "176.500", cost: "14.120.000", endpoints: ["/v2/ekyc/sessions", "/v2/ekyc/verify", "/v2/ekyc/results/{id}"], price: 80 },
   Invoice: { grants: "624", costGrants: "750.000 VNĐ", active: "603", calls: "72.600", cost: "3.630.000", endpoints: ["/v2/invoices", "/v2/invoices/{id}", "/v2/invoices/search"], price: 50 },
 };
 
-function buildScopeRows(scope: Exclude<AnalyticsTab, "Connection" | "BalanceHook">): DetailRow[] {
+function buildScopeRows(scope: Exclude<AnalyticsTab, "Connection">): DetailRow[] {
   const config = scopeConfig[scope];
   return Array.from({ length: 18 }, (_, index) => {
     const row = baseRows[index % baseRows.length];
@@ -72,58 +73,90 @@ function buildScopeRows(scope: Exclude<AnalyticsTab, "Connection" | "BalanceHook
   });
 }
 
+const scopeUnits: Record<Exclude<AnalyticsTab, "Connection">, string> = {
+  Transaction: "giao dịch",
+  Identity: "lần",
+  Balance: "lần",
+  QRPay: "giao dịch",
+  VirtualAccount: "giao dịch",
+  BalanceHook: "giao dịch",
+  Transfer: "giao dịch",
+  eKYC: "lượt",
+  Invoice: "hóa đơn",
+};
+
 const analyticsData: Record<AnalyticsTab, {
   subtitle: string;
-  metrics: { label: string; value: string; change?: string; tone?: string }[];
+  metrics: { label: string; value: string; change?: string; tone?: string; unit?: string }[];
   rows: DetailRow[];
   hasWebhook?: boolean;
 }> = {
   Connection: {
     subtitle: "Tổng hợp Grant ID đã kết nối và các scope được cấp quyền",
     metrics: [
-      { label: "Tổng Grant ID", value: "2.847" },
-      { label: "Đang hoạt động · đến 31/07", value: "2.592" },
-      { label: "Thêm mới trong tháng", value: "184" },
-      { label: "Tạm dừng trong tháng", value: "14", tone: "warning" },
-      { label: "Đã xoá trong tháng", value: "3", tone: "danger" },
+      { label: "Tổng Grant ID", value: "2.847", unit: "grant" },
+      { label: "Đang hoạt động · đến 31/07", value: "2.592", unit: "grant" },
+      { label: "Thêm mới trong tháng", value: "184", unit: "grant" },
+      { label: "Tạm dừng trong tháng", value: "14", tone: "warning", unit: "grant" },
+      { label: "Đã xoá trong tháng", value: "3", tone: "danger", unit: "grant" },
     ],
     rows: baseRows,
   },
-  BalanceHook: {
-    subtitle: "Lịch sử thông báo biến động số dư qua webhook",
-    metrics: [
-      { label: "Tổng thông báo", value: "981.240", change: "+12.4%" },
-      { label: "Gửi thành công", value: "978.100", change: "+12.1%" },
-      { label: "Thất bại / Retrying", value: "3.140", tone: "warning", change: "-2.3%" },
-      { label: "Tổng tiền vào/ra", value: "48.250.000.000 VNĐ", change: "+15.8%" },
-    ],
-    rows: baseRows,
-    hasWebhook: true,
-  },
-  ...Object.fromEntries((Object.keys(scopeConfig) as Exclude<AnalyticsTab, "Connection" | "BalanceHook">[]).map(scope => {
+  ...Object.fromEntries((Object.keys(scopeConfig) as Exclude<AnalyticsTab, "Connection">[]).map(scope => {
     const config = scopeConfig[scope];
     return [scope, {
       subtitle: `${config.grants} Grant ID đang có quyền gọi API thuộc scope ${scope}`,
       metrics: scope === "QRPay"
         ? [
-          { label: "Grant đang hoạt động", value: config.active, change: "+6.8%" },
-          { label: "Thanh toán thành công", value: "132.400", change: "+8.6%" },
-          { label: "Thông báo thành công", value: "131.900", change: "+8.2%" },
-          { label: "Tổng tiền giao dịch", value: "12.486.750.000", change: "+10.4%" },
-          { label: "Chi phí QR Pay", value: config.cost, change: "+8.9%" },
+          { label: "Grant đang hoạt động", value: config.active, change: "+6.8%", unit: "grant" },
+          { label: "Thanh toán thành công", value: "132.400", change: "+8.6%", unit: "giao dịch" },
+          { label: "Thông báo thành công", value: "131.900", change: "+8.2%", unit: "giao dịch" },
+          { label: "Tổng tiền giao dịch", value: "12.486.750.000", change: "+10.4%", unit: "đ" },
+          { label: "Chi phí QR Pay", value: config.cost, change: "+8.9%", unit: "đ" },
         ]
-        : [
-          { label: `Grant ${scope} đang hoạt động`, value: config.grants, change: "+6.8%" },
-          { label: "Chi phí Grant", value: config.costGrants, change: "+4.2%" },
-          { label: "API calls", value: config.calls, change: "+9.7%" },
-          { label: `Chi phí ${scope}`, value: config.cost, change: "+8.9%" },
-        ],
+        : scope === "VirtualAccount"
+          ? [
+            { label: "Grant đang hoạt động", value: config.active, change: "+6.8%", unit: "grant" },
+            { label: "Số lượng VA đang hoạt động", value: "1.520", change: "+12.4%", unit: "VA" },
+            { label: "Số lượng VA tạo mới", value: "184", change: "+15.2%", unit: "VA" },
+            { label: "Số lượng VA ngừng kích hoạt", value: "12", tone: "warning", change: "+2.1%", unit: "VA" },
+            { label: "Chi phí VA", value: config.cost, change: "+8.9%", unit: "đ" },
+          ]
+          : scope === "BalanceHook"
+            ? [
+              { label: "Tổng giao dịch", value: "281.400", change: "+9.7%", unit: "giao dịch" },
+              { label: "Thông báo thành công", value: "280.900", change: "+9.5%", unit: "thông báo" },
+              { label: "Thông báo thất bại", value: "500", tone: "warning", change: "-1.2%", unit: "thông báo" },
+              { label: "Tổng tiền giao dịch", value: "45.820.000.000", change: "+14.2%", unit: "đ" },
+              { label: "Chi phí", value: config.cost, change: "+8.9%", unit: "đ" },
+            ]
+            : scope === "Transfer"
+              ? [
+                { label: "Tổng giao dịch", value: "108.200", change: "+9.7%", unit: "giao dịch" },
+                { label: "Giao dịch thành công", value: "107.800", change: "+9.6%", unit: "giao dịch" },
+                { label: "Giao dịch thất bại", value: "400", tone: "warning", change: "-1.5%", unit: "giao dịch" },
+                { label: "Tổng tiền", value: "82.650.000.000", change: "+16.8%", unit: "đ" },
+                { label: "Chi phí", value: config.cost, change: "+8.9%", unit: "đ" },
+              ]
+              : scope === "Transaction"
+                ? [
+                  { label: "Grant đang hoạt động", value: "62", change: "+4.2%", unit: "grant" },
+                  { label: "Chi phí Grant (100.000đ/grant)", value: "6.200.000", change: "+4.2%", unit: "đ" },
+                  { label: "API calls thành công", value: config.calls, change: "+9.7%", unit: "calls" },
+                  { label: "Chi phí API (30.000đ/1.000 calls)", value: "12.804.000", change: "+9.7%", unit: "đ" },
+                ]
+                : [
+                  { label: `Grant ${scope} đang hoạt động`, value: config.grants, change: "+6.8%", unit: "grant" },
+                  { label: "Chi phí Grant", value: config.costGrants, change: "+4.2%", unit: "đ" },
+                  { label: "API calls", value: config.calls, change: "+9.7%", unit: scopeUnits[scope] || "calls" },
+                  { label: `Chi phí ${scope}`, value: config.cost, change: "+8.9%", unit: "đ" },
+                ],
       rows: buildScopeRows(scope),
       hasWebhook: config.webhook,
     }];
-  })) as Record<Exclude<AnalyticsTab, "Connection" | "BalanceHook">, {
+  })) as Record<Exclude<AnalyticsTab, "Connection">, {
     subtitle: string;
-    metrics: { label: string; value: string; change?: string; tone?: string }[];
+    metrics: { label: string; value: string; change?: string; tone?: string; unit?: string }[];
     rows: DetailRow[];
     hasWebhook?: boolean;
   }>,
@@ -134,8 +167,8 @@ const screenData: Record<string, { description: string; action: string; columns:
   API: { description: "Danh sách URL nhận kết quả sau khi end-user cấp quyền thành công.", action: "Tìm hiểu thêm ↗", columns: [], rows: [] },
   Webhooks: { description: "Endpoint nhận sự kiện Grant, Transaction, QRPay và VirtualAccount.", action: "＋ Thêm webhook", columns: [], rows: [] },
   Logs: { description: "Lịch sử request API và webhook của App.", action: "⇩ Export logs", columns: ["Request ID", "Endpoint / Event", "Scope", "Grant ID", "HTTP"], rows: [["req_7KQ2M91P", "/v2/transactions", "Transaction", "grt_8L2KP91N", "200"], ["req_4PX9D20A", "/v2/balance", "Balance", "grt_4T7MD20Q", "200"], ["wh_1MV3C84F", "payment.succeeded", "QRPay webhook", "grt_1A9HC63V", "200"], ["wh_8AB5R72W", "va.credited", "VirtualAccount webhook", "grt_6P3RF82K", "429"]] },
-  Connections: { description: "Tổng hợp Grant ID, ngân hàng và các scope đã được cấp.", action: "＋ Tạo connection", columns: ["Grant ID", "End-user", "Ngân hàng", "Scopes được cấp", "Trạng thái"], rows: baseRows.map(r => [r.grant, r.user, r.bank, r.scopes, r.status]) },
-  Usage: { description: "Theo dõi Grant, API usage và chi phí theo từng nghiệp vụ.", action: "⇩ Tải hoá đơn", columns: ["Scope", "Grant có quyền", "API calls", "Chi phí", "Trạng thái"], rows: (Object.keys(scopeConfig) as Exclude<AnalyticsTab, "Connection" | "BalanceHook">[]).map(scope => [scope, scopeConfig[scope].grants, scopeConfig[scope].calls, scopeConfig[scope].cost, "Active"]) },
+  Grants: { description: "Tổng hợp Grant ID, ngân hàng và các scope đã được cấp.", action: "＋ Tạo connection", columns: ["Grant ID", "End-user", "Ngân hàng", "Scopes được cấp", "Trạng thái"], rows: baseRows.map(r => [r.grant, r.user, r.bank, r.scopes, r.status]) },
+  Usage: { description: "Theo dõi Grant, API usage và chi phí theo từng nghiệp vụ.", action: "⇩ Tải hoá đơn", columns: ["Scope", "Grant có quyền", "API calls", "Chi phí", "Trạng thái"], rows: (Object.keys(scopeConfig) as Exclude<AnalyticsTab, "Connection">[]).map(scope => [scope, scopeConfig[scope].grants, scopeConfig[scope].calls, scopeConfig[scope].cost, "Active"]) },
   "Grant debugger": { description: "Kiểm tra trạng thái và quyền của một Grant.", action: "Chạy kiểm tra", columns: ["Grant ID gần đây", "Ngân hàng", "Scopes", "Hết hạn", "Trạng thái"], rows: [["grt_8L2KP91N", "Techcombank", "identity, balance, transaction", "24/10/2026", "Healthy"], ["grt_4T7MD20Q", "Vietcombank", "balance, transaction", "02/11/2026", "Healthy"], ["grt_1A9HC63V", "MB Bank", "identity, qrpay", "28/07/2026", "Expiring"]] },
   "Cài đặt App": { description: "Thông tin và callback URL của App.", action: "Lưu thay đổi", columns: ["Cấu hình", "Giá trị", "Môi trường", "Cập nhật", "Trạng thái"], rows: [["App ID", "app_8F2KD91M", "—", "Không đổi", "Active"], ["Redirect URI", "bankhub.vn/cas/callback", "Production", "19/07/2026", "Verified"], ["Allowed origin", "https://bankhub.vn", "Production", "19/07/2026", "Verified"]] },
   "Thành viên": { description: "Quản lý quyền truy cập App.", action: "＋ Mời thành viên", columns: ["Thành viên", "Email", "Vai trò", "Truy cập gần nhất", "Trạng thái"], rows: [["Minh Nguyễn", "minh@vietfin.vn", "Owner", "Vừa xong", "Active"], ["Linh Phạm", "linh@vietfin.vn", "Developer", "2 giờ trước", "Active"], ["Huy Trần", "huy@vietfin.vn", "Analyst", "Hôm qua", "Active"]] },
@@ -144,15 +177,20 @@ const screenData: Record<string, { description: string; action: string; columns:
 const monthChartValues = [34, 39, 37, 45, 42, 49, 47, 52, 50, 57, 54, 61, 59, 64, 62, 69, 66, 72, 70, 76, 73, 81, 78, 84, 82, 88, 85, 91, 89, 94, 92];
 const grantNewDaily = [3, 4, 3, 5, 4, 6, 5, 5, 4, 7, 5, 6, 5, 7, 5, 8, 6, 5, 7, 6, 8, 5, 7, 6, 9, 7, 6, 8, 7, 9, 6];
 const grantPausedDeletedDaily = [0, 1, 0, 1, 0, 1, 1, 0, 1, 1, 0, 1, 0, 2, 1, 0, 1, 1, 0, 1, 2, 0, 1, 1, 0, 2, 1, 0, 1, 1, 0];
-const visibleUsageTabs: AnalyticsTab[] = ["Connection", "Transaction", "QRPay", "Transfer"];
+const visibleUsageTabs: AnalyticsTab[] = ["Transaction", "QRPay", "VirtualAccount", "BalanceHook", "Transfer"];
 
 function usageTabLabel(tab: AnalyticsTab) {
-  return tab === "Connection" ? "Grant" : tab;
+  if (tab === "Connection") return "Grant";
+  if (tab === "VirtualAccount") return "Virtual Account";
+  if (tab === "BalanceHook") return "Balance Hook";
+  return tab;
 }
 
-function KpiValue({ value }: { value: string }) {
+function KpiValue({ value, unit }: { value: string; unit?: string }) {
   const isMoney = value.endsWith(" VNĐ");
-  return <>{isMoney ? value.slice(0, -4) : value}{isMoney && <i className="kpi-currency">đ</i>}</>;
+  const displayVal = isMoney ? value.slice(0, -4) : value;
+  const displayUnit = isMoney ? "đ" : unit;
+  return <>{displayVal}{displayUnit && <i className="kpi-unit">{displayUnit}</i>}</>;
 }
 
 const usageTableData: Record<AnalyticsTab, { title: string; columns: string[]; rows: string[][] }> = {
@@ -166,6 +204,15 @@ const usageTableData: Record<AnalyticsTab, { title: string; columns: string[]; r
       ["4", "grt_6P3RF82K", "Tổ chức", "Đỗ Tuấn Nam", "001192••••18", "Công ty TNHH Nam Việt", "0109384612", "024 6682 0911", "ACB", "2167 •••• 3306", "VirtualAccount, Invoice", "23/07/2026 17:03", "Deleted"],
       ["5", "grt_2K8NP14D", "Cá nhân", "Trần Hoàng Long", "079195••••81", "—", "—", "0912 650 428", "BIDV", "2111 •••• 9024", "Transaction, Transfer", "23/07/2026 11:46", "Accepted"],
       ["6", "grt_9Q4LC73A", "Tổ chức", "Vũ Thanh Hằng", "001187••••62", "Công ty CP Nova Retail", "0318291740", "028 3939 1166", "Sacombank", "0602 •••• 2180", "QRPay, VirtualAccount", "22/07/2026 09:34", "Accepted"],
+      ["7", "grt_5M3KP82N", "Cá nhân", "Nguyễn Văn Đức", "079201••••55", "—", "—", "0908 123 987", "VietinBank API", "1018 •••• 5541", "Transaction, QRPay", "21/07/2026 18:20", "Accepted"],
+      ["8", "grt_7B9RT14H", "Tổ chức", "Hoàng Ngọc Sơn", "036190••••88", "Công ty CP Trường Sơn", "0108920194", "024 3821 7789", "Techcombank", "1902 •••• 8812", "VirtualAccount, Transfer", "21/07/2026 14:05", "Accepted"],
+      ["9", "grt_3C8VL90P", "Cá nhân", "Trịnh Bảo Ngọc", "001199••••34", "—", "—", "0934 567 890", "VPBank", "1542 •••• 9901", "Transaction, Balance", "20/07/2026 11:15", "Paused"],
+      ["10", "grt_9X2NY55T", "Tổ chức", "Phan Thanh Tùng", "079188••••77", "Công ty TNHH Sài Gòn Tech", "0316543210", "028 3822 9900", "Vietcombank", "1019 •••• 3342", "QRPay, BalanceHook", "20/07/2026 08:50", "Accepted"],
+      ["11", "grt_1L8QP42K", "Cá nhân", "Vũ Thu Trang", "001196••••21", "—", "—", "0977 888 999", "TPBank", "0219 •••• 4410", "Transaction, QRPay", "19/07/2026 16:40", "Accepted"],
+      ["12", "grt_6K4FD19M", "Tổ chức", "Đặng Quốc Huy", "079193••••14", "Công ty CP Hoàng Gia", "0319087654", "028 7300 1122", "BIDV", "2151 •••• 6678", "Transfer, VirtualAccount", "19/07/2026 10:12", "New"],
+      ["13", "grt_8P9WX33L", "Cá nhân", "Bùi Mỹ Linh", "036200••••90", "—", "—", "0918 333 444", "Techcombank", "1903 •••• 1129", "QRPay, BalanceHook", "18/07/2026 15:30", "Accepted"],
+      ["14", "grt_2M7VT88D", "Tổ chức", "Nguyễn Thái Dương", "001191••••63", "Công ty TNHH Á Châu", "0107654321", "024 3942 5566", "MB Bank", "0682 •••• 9988", "Transaction, Balance", "18/07/2026 09:05", "Accepted"],
+      ["15", "grt_4H9BN11Q", "Cá nhân", "Lý Kim Ngân", "079203••••47", "—", "—", "0909 666 777", "Sacombank", "0603 •••• 7712", "Transaction, Transfer", "17/07/2026 14:22", "Accepted"],
     ],
   },
   Transaction: {
@@ -176,8 +223,17 @@ const usageTableData: Record<AnalyticsTab, { title: string; columns: string[]; r
       ["2", "req_TRX84154", "grt_4T7MD20Q", "Vietcombank", "1028 •••• 1098", "15/07/2026", "24/07/2026", "Success", "0.8s", "24/07/2026 16:42:11"],
       ["3", "req_TRX84017", "grt_1A9HC63V", "MB Bank", "0681 •••• 6721", "01/06/2026", "30/06/2026", "Failed", "1.2s", "24/07/2026 15:18:46"],
       ["4", "req_TRX83880", "grt_6P3RF82K", "ACB", "2167 •••• 3306", "20/07/2026", "24/07/2026", "Success", "0.6s", "24/07/2026 14:09:35"],
-      ["5", "req_TRX83743", "grt_2K8NP14D", "BIDV", "2111 •••• 9024", "01/07/2026", "24/07/2026", "Success", "1s", "24/07/2026 13:45:09"],
+      ["5", "req_TRX83743", "grt_2K8NP14D", "BIDV", "2111 •••• 9024", "01/07/2026", "24/07/2026", "Success", "1.0s", "24/07/2026 13:45:09"],
       ["6", "req_TRX83606", "grt_9Q4LC73A", "Sacombank", "0602 •••• 2180", "23/07/2026", "24/07/2026", "Success", "2.4s", "24/07/2026 13:28:52"],
+      ["7", "req_TRX83469", "grt_5M3KP82N", "VietinBank", "1018 •••• 5541", "01/07/2026", "23/07/2026", "Success", "0.7s", "23/07/2026 18:50:12"],
+      ["8", "req_TRX83332", "grt_7B9RT14H", "Techcombank", "1902 •••• 8812", "10/07/2026", "23/07/2026", "Success", "0.9s", "23/07/2026 16:15:30"],
+      ["9", "req_TRX83195", "grt_3C8VL90P", "VPBank", "1542 •••• 9901", "01/07/2026", "22/07/2026", "Failed", "1.8s", "23/07/2026 11:05:44"],
+      ["10", "req_TRX83058", "grt_9X2NY55T", "Vietcombank", "1019 •••• 3342", "15/07/2026", "22/07/2026", "Success", "0.4s", "22/07/2026 17:30:19"],
+      ["11", "req_TRX82921", "grt_1L8QP42K", "TPBank", "0219 •••• 4410", "01/07/2026", "22/07/2026", "Success", "0.6s", "22/07/2026 14:12:05"],
+      ["12", "req_TRX82784", "grt_6K4FD19M", "BIDV", "2151 •••• 6678", "01/07/2026", "21/07/2026", "Success", "1.1s", "21/07/2026 19:08:42"],
+      ["13", "req_TRX82647", "grt_8P9WX33L", "Techcombank", "1903 •••• 1129", "05/07/2026", "21/07/2026", "Success", "0.5s", "21/07/2026 15:44:20"],
+      ["14", "req_TRX82510", "grt_2M7VT88D", "MB Bank", "0682 •••• 9988", "01/07/2026", "20/07/2026", "Success", "0.8s", "20/07/2026 10:22:15"],
+      ["15", "req_TRX82373", "grt_4H9BN11Q", "Sacombank", "0603 •••• 7712", "01/07/2026", "20/07/2026", "Success", "1.5s", "20/07/2026 08:50:33"],
     ],
   },
   Identity: {
@@ -201,76 +257,87 @@ const usageTableData: Record<AnalyticsTab, { title: string; columns: string[]; r
     ],
   },
   QRPay: {
-    title: "Danh sách giao dịch QR Pay",
-    columns: ["STT", "Mã QR", "Grant ID", "Mã tham chiếu", "Mã giao dịch", "Ngân hàng", "Số tài khoản", "Tên người nhận", "Số tiền", "Nội dung", "Thông báo", "Trạng thái", "Thời gian"],
+    title: "Danh sách giao dịch",
+    columns: ["STT", "QR ID", "Grant ID", "Reference", "Transaction", "Ngân hàng", "STK", "Tên người nhận", "Số tiền", "Nội dung", "Thông báo", "Thời gian"],
     rows: [
-      ["1", "qr_M20P81", "grt_8L2KP91N", "FT260724163218", "TXN260724163218", "Techcombank", "1903 •••• 4812", "Nguyễn Minh Anh", "₫125,000", "Order BH-10428", "Delivered", "Success", "24/07/2026 16:32:18"],
-      ["2", "qr_Q47D20", "grt_4T7MD20Q", "FT260724160542", "TXN260724160542", "Vietcombank", "1028 •••• 1098", "Công ty CP Minh Long", "₫2,480,000", "INV-2026-1842", "Delivered", "Success", "24/07/2026 16:05:42"],
-      ["3", "qr_A19C63", "grt_9Q4LC73A", "FT260724154209", "TXN260724154209", "Sacombank", "0602 •••• 2180", "Công ty CP Nova Retail", "₫845,000", "POS-NR-02814", "Delivered", "Success", "24/07/2026 15:42:09"],
-      ["4", "qr_W63F82", "grt_6P3RF82K", "FT260724145633", "TXN260724145633", "ACB", "2167 •••• 3306", "Công ty TNHH Nam Việt", "₫6,200,000", "HD-0726-091", "Failed", "Failed", "24/07/2026 14:56:33"],
-      ["5", "qr_D28P14", "grt_2K8NP14D", "FT260724132851", "TXN260724132851", "BIDV", "2111 •••• 9024", "Trần Hoàng Long", "₫320,000", "Thanh toán đơn 8421", "Delivered", "Success", "24/07/2026 13:28:51"],
-      ["6", "qr_K82V90", "grt_5M3KP82N", "FT260724121540", "TXN260724121540", "VietinBank", "1018 •••• 5541", "Nguyễn Văn Đức", "₫1,500,000", "Order BH-10429", "Delivered", "Success", "24/07/2026 12:15:40"],
-      ["7", "qr_P19L44", "grt_7B9RT14H", "FT260724110822", "TXN260724110822", "Techcombank", "1902 •••• 8812", "Hoàng Ngọc Sơn", "₫4,800,000", "INV-2026-1901", "Delivered", "Success", "24/07/2026 11:08:22"],
-      ["8", "qr_X54M12", "grt_3C8VL90P", "FT260724103015", "TXN260724103015", "VPBank", "1542 •••• 9901", "Trịnh Bảo Ngọc", "₫750,000", "POS-NR-02815", "Delivered", "Success", "24/07/2026 10:30:15"],
-      ["9", "qr_T88K99", "grt_9X2NY55T", "FT260724094508", "TXN260724094508", "Vietcombank", "1019 •••• 3342", "Phan Thanh Tùng", "₫980,000", "Thanh toán đơn 8422", "Retrying", "Processing", "24/07/2026 09:45:08"],
-      ["10", "qr_Z12N45", "grt_1L8QP42K", "FT260724085033", "TXN260724085033", "TPBank", "0219 •••• 4410", "Vũ Thu Trang", "₫3,400,000", "HD-0726-092", "Delivered", "Success", "24/07/2026 08:50:33"],
-      ["11", "qr_R90P66", "grt_6K4FD19M", "FT260723182010", "TXN260723182010", "BIDV", "2151 •••• 6678", "Đặng Quốc Huy", "₫12,000,000", "Order BH-10430", "Delivered", "Success", "23/07/2026 18:20:10"],
-      ["12", "qr_B44L21", "grt_8P9WX33L", "FT260723171245", "TXN260723171245", "Techcombank", "1903 •••• 1129", "Bùi Mỹ Linh", "₫540,000", "INV-2026-1902", "Delivered", "Success", "23/07/2026 17:12:45"],
-      ["13", "qr_C77V88", "grt_2M7VT88D", "FT260723160530", "TXN260723160530", "MB Bank", "0682 •••• 9988", "Nguyễn Thái Dương", "₫2,150,000", "POS-NR-02816", "Delivered", "Success", "23/07/2026 16:05:30"],
-      ["14", "qr_H11K33", "grt_4H9BN11Q", "FT260723145012", "TXN260723145012", "Sacombank", "0603 •••• 7712", "Lý Kim Ngân", "₫8,900,000", "Thanh toán đơn 8423", "Failed", "Failed", "23/07/2026 14:50:12"],
-      ["15", "qr_Y99M54", "grt_8L2KP91N", "FT260723131804", "TXN260723131804", "Techcombank", "1903 •••• 4812", "Nguyễn Minh Anh", "₫670,000", "HD-0726-093", "Delivered", "Success", "23/07/2026 13:18:04"],
+      ["1", "qr_M20P81", "grt_8L2KP91N", "FT260724163218", "BH10428", "Techcombank", "1903 •••• 4812", "Nguyễn Minh Anh", "₫125,000", "Order BH-10428", "Delivered", "24/07/2026 16:32:18"],
+      ["2", "qr_Q47D20", "grt_4T7MD20Q", "FT260724160542", "INV20261842", "Vietcombank", "1028 •••• 1098", "Công ty CP Minh Long", "₫2,480,000", "INV-2026-1842", "Delivered", "24/07/2026 16:05:42"],
+      ["3", "qr_A19C63", "grt_9Q4LC73A", "FT260724154209", "POSNR02814", "Sacombank", "0602 •••• 2180", "Công ty CP Nova Retail", "₫845,000", "POS-NR-02814", "Delivered", "24/07/2026 15:42:09"],
+      ["4", "qr_W63F82", "grt_6P3RF82K", "FT260724145633", "HD0726091", "ACB", "2167 •••• 3306", "Công ty TNHH Nam Việt", "₫6,200,000", "HD-0726-091", "Failed", "24/07/2026 14:56:33"],
+      ["5", "qr_D28P14", "grt_2K8NP14D", "FT260724132851", "ORDER8421", "BIDV", "2111 •••• 9024", "Trần Hoàng Long", "₫320,000", "Thanh toán đơn 8421", "Delivered", "24/07/2026 13:28:51"],
+      ["6", "qr_K82V90", "grt_5M3KP82N", "FT260724121540", "BH10429", "VietinBank", "1018 •••• 5541", "Nguyễn Văn Đức", "₫1,500,000", "Order BH-10429", "Delivered", "24/07/2026 12:15:40"],
+      ["7", "qr_P19L44", "grt_7B9RT14H", "FT260724110822", "INV20261901", "Techcombank", "1902 •••• 8812", "Hoàng Ngọc Sơn", "₫4,800,000", "INV-2026-1901", "Delivered", "24/07/2026 11:08:22"],
+      ["8", "qr_X54M12", "grt_3C8VL90P", "FT260724103015", "POSNR02815", "VPBank", "1542 •••• 9901", "Trịnh Bảo Ngọc", "₫750,000", "POS-NR-02815", "Delivered", "24/07/2026 10:30:15"],
+      ["9", "qr_T88K99", "grt_9X2NY55T", "FT260724094508", "ORDER8422", "Vietcombank", "1019 •••• 3342", "Phan Thanh Tùng", "₫980,000", "Thanh toán đơn 8422", "Retrying", "24/07/2026 09:45:08"],
+      ["10", "qr_Z12N45", "grt_1L8QP42K", "FT260724085033", "HD0726092", "TPBank", "0219 •••• 4410", "Vũ Thu Trang", "₫3,400,000", "HD-0726-092", "Delivered", "24/07/2026 08:50:33"],
+      ["11", "qr_R90P66", "grt_6K4FD19M", "FT260723182010", "BH10430", "BIDV", "2151 •••• 6678", "Đặng Quốc Huy", "₫12,000,000", "Order BH-10430", "Delivered", "23/07/2026 18:20:10"],
+      ["12", "qr_B44L21", "grt_8P9WX33L", "FT260723171245", "INV20261902", "Techcombank", "1903 •••• 1129", "Bùi Mỹ Linh", "₫540,000", "INV-2026-1902", "Delivered", "23/07/2026 17:12:45"],
+      ["13", "qr_C77V88", "grt_2M7VT88D", "FT260723160530", "POSNR02816", "MB Bank", "0682 •••• 9988", "Nguyễn Thái Dương", "₫2,150,000", "POS-NR-02816", "Delivered", "23/07/2026 16:05:30"],
+      ["14", "qr_H11K33", "grt_4H9BN11Q", "FT260723145012", "ORDER8423", "Sacombank", "0603 •••• 7712", "Lý Kim Ngân", "₫8,900,000", "Thanh toán đơn 8423", "Failed", "23/07/2026 14:50:12"],
+      ["15", "qr_Y99M54", "grt_8L2KP91N", "FT260723131804", "HD0726093", "Techcombank", "1903 •••• 4812", "Nguyễn Minh Anh", "₫670,000", "HD-0726-093", "Delivered", "23/07/2026 13:18:04"],
     ],
   },
   VirtualAccount: {
     title: "Danh sách tài khoản định danh (Virtual Account)",
-    columns: ["STT", "Mã VA", "Grant ID", "Ngân hàng", "Số tài khoản gốc", "Tên tài khoản", "Số tài khoản VA", "Tên VA", "Trạng thái", "Thời gian tạo"],
+    columns: ["STT", "GrantID", "Ngân hàng", "Tên tài khoản", "STK gốc", "Tên VA", "VA", "Trạng thái", "Ngày tạo"],
     rows: [
-      ["1", "va_82JF91", "grt_6P3RF82K", "ACB", "2167 •••• 3306", "CTY TNHH NAM VIET", "9868120001842", "VA Thanh toan Nam Viet", "Active", "23/07/2026 17:03"],
-      ["2", "va_48RT12", "grt_9Q4LC73A", "Vietcombank", "1028 •••• 1098", "CTY CP NOVA RETAIL", "9704360028471", "VA Nova Store HCM", "Active", "22/07/2026 09:34"],
-      ["3", "va_91MK05", "grt_4T7MD20Q", "Techcombank", "1903 •••• 4812", "CTY CP MINH LONG", "1903690015820", "VA Thu ho Minh Long", "Paused", "20/07/2026 14:15"],
-      ["4", "va_18PL44", "grt_8L2KP91N", "BIDV", "2111 •••• 9024", "NGUYEN MINH ANH", "1289100042763", "VA Minh Anh Personal", "Inactive", "18/07/2026 11:20"],
-      ["5", "va_73LN99", "grt_1A9HC63V", "MB Bank", "0681 •••• 6721", "PHAM THUY LINH", "9901820038194", "VA Linh Pham Store", "Active", "15/07/2026 08:45"],
-      ["6", "va_25TR88", "grt_2K8NP14D", "Sacombank", "0602 •••• 2180", "TRAN HOANG LONG", "9602410082736", "VA Long Tran Online", "Active", "12/07/2026 16:30"],
-      ["7", "va_55VD10", "grt_5M3KP82N", "VietinBank", "1018 •••• 5541", "NGUYEN VAN DUC", "9688100055410", "VA Van Duc Trading", "Active", "10/07/2026 14:10"],
-      ["8", "va_88TS25", "grt_7B9RT14H", "Techcombank", "1902 •••• 8812", "CTY CP TRUONG SON", "1903880088120", "VA Thu ho Truong Son", "Active", "08/07/2026 09:25"],
-      ["9", "va_34NT40", "grt_3C8VL90P", "VPBank", "1542 •••• 9901", "TRINH BAO NGOC", "9842150099015", "VA Ngoc Trinh Shop", "Paused", "05/07/2026 16:40"],
-      ["10", "va_19SG15", "grt_9X2NY55T", "Vietcombank", "1019 •••• 3342", "CTY TNHH SAI GON TECH", "9704190033421", "VA Saigon Tech Main", "Active", "03/07/2026 11:15"],
-      ["11", "va_11TT50", "grt_1L8QP42K", "TPBank", "0219 •••• 4410", "VU THU TRANG", "9219000044102", "VA Thu Trang Fashion", "Active", "01/07/2026 15:50"],
-      ["12", "va_66HG05", "grt_6K4FD19M", "BIDV", "2151 •••• 6678", "CTY CP HOANG GIA", "1289210066789", "VA Hoang Gia B2B", "Active", "28/06/2026 10:05"],
-      ["13", "va_88ML35", "grt_8P9WX33L", "Techcombank", "1903 •••• 1129", "BUI MY LINH", "1903110011299", "VA My Linh Studio", "Active", "25/06/2026 17:35"],
-      ["14", "va_22AC50", "grt_2M7VT88D", "MB Bank", "0682 •••• 9988", "CTY TNHH A CHAU", "9901060099884", "VA A Chau Logistics", "Active", "22/06/2026 08:50"],
-      ["15", "va_44KN15", "grt_4H9BN11Q", "Sacombank", "0603 •••• 7712", "LY KIM NGAN", "9602060077123", "VA Kim Ngan Jewelry", "Active", "20/06/2026 13:15"],
+      ["1", "grt_6P3RF82K", "ACB", "CTY TNHH NAM VIET", "2167 •••• 3306", "VA Thanh toan Nam Viet", "9868120001842", "Active", "23/07/2026 17:03"],
+      ["2", "grt_9Q4LC73A", "Vietcombank", "CTY CP NOVA RETAIL", "1028 •••• 1098", "VA Nova Store HCM", "9704360028471", "Active", "22/07/2026 09:34"],
+      ["3", "grt_4T7MD20Q", "Techcombank", "CTY CP MINH LONG", "1903 •••• 4812", "VA Thu ho Minh Long", "1903690015820", "Paused", "20/07/2026 14:15"],
+      ["4", "grt_8L2KP91N", "BIDV", "NGUYEN MINH ANH", "2111 •••• 9024", "VA Minh Anh Personal", "1289100042763", "Inactive", "18/07/2026 11:20"],
+      ["5", "grt_1A9HC63V", "MB Bank", "PHAM THUY LINH", "0681 •••• 6721", "VA Linh Pham Store", "9901820038194", "Active", "15/07/2026 08:45"],
+      ["6", "grt_2K8NP14D", "Sacombank", "TRAN HOANG LONG", "0602 •••• 2180", "VA Long Tran Online", "9602410082736", "Active", "12/07/2026 16:30"],
+      ["7", "grt_5M3KP82N", "VietinBank", "NGUYEN VAN DUC", "1018 •••• 5541", "VA Van Duc Trading", "9688100055410", "Active", "10/07/2026 14:10"],
+      ["8", "grt_7B9RT14H", "Techcombank", "CTY CP TRUONG SON", "1902 •••• 8812", "VA Thu ho Truong Son", "1903880088120", "Active", "08/07/2026 09:25"],
+      ["9", "grt_3C8VL90P", "VPBank", "TRINH BAO NGOC", "1542 •••• 9901", "VA Ngoc Trinh Shop", "9842150099015", "Paused", "05/07/2026 16:40"],
+      ["10", "grt_9X2NY55T", "Vietcombank", "CTY TNHH SAI GON TECH", "1019 •••• 3342", "VA Saigon Tech Main", "9704190033421", "Active", "03/07/2026 11:15"],
+      ["11", "grt_1L8QP42K", "TPBank", "VU THU TRANG", "0219 •••• 4410", "VA Thu Trang Fashion", "9219000044102", "Active", "01/07/2026 15:50"],
+      ["12", "grt_6K4FD19M", "BIDV", "CTY CP HOANG GIA", "2151 •••• 6678", "VA Hoang Gia B2B", "1289210066789", "Active", "28/06/2026 10:05"],
+      ["13", "grt_8P9WX33L", "Techcombank", "BUI MY LINH", "1903 •••• 1129", "VA My Linh Studio", "1903110011299", "Active", "25/06/2026 17:35"],
+      ["14", "grt_2M7VT88D", "MB Bank", "CTY TNHH A CHAU", "0682 •••• 9988", "VA A Chau Logistics", "9901060099884", "Active", "22/06/2026 08:50"],
+      ["15", "grt_4H9BN11Q", "Sacombank", "LY KIM NGAN", "0603 •••• 7712", "VA Kim Ngan Jewelry", "9602060077123", "Active", "20/06/2026 13:15"],
     ],
   },
   BalanceHook: {
     title: "Lịch sử thông báo biến động số dư (Balance Hook)",
-    columns: ["STT", "Mã GD", "Grant ID", "Mã tham chiếu", "Mã giao dịch", "Ngân hàng", "Số tài khoản", "Tên tài khoản", "Số tiền", "Nội dung", "Thông báo", "Trạng thái", "Thời gian"],
+    columns: ["STT", "Txn ID", "GrantID", "Reference", "Transaction", "Ngân hàng", "Số tài khoản", "Tên tài khoản", "Số tiền", "Nội dung", "Thông báo", "Thời gian"],
     rows: [
-      ["1", "txn_981240", "grt_8L2KP91N", "FT260724164210", "TXN260724164210", "Techcombank", "1903 •••• 4812", "Nguyễn Minh Anh", "+₫482,500", "Tiền vào: Nhan thanh toan BH20481", "Delivered", "Success", "24/07/2026 16:42:10"],
-      ["2", "txn_981239", "grt_4T7MD20Q", "FT260724161825", "TXN260724161825", "Vietcombank", "1028 •••• 1098", "Công ty CP Minh Long", "-₫12,650,000", "Tiền ra: Thanh toan phi dich vu VCB", "Delivered", "Success", "24/07/2026 16:18:25"],
-      ["3", "txn_981238", "grt_1A9HC63V", "FT260724153108", "TXN260724153108", "MB Bank", "0681 •••• 6721", "Phạm Thùy Linh", "+₫3,200,000", "Tiền vào: Cong tien QR thanh toan", "Failed", "Failed", "24/07/2026 15:31:08"],
-      ["4", "txn_981237", "grt_6P3RF82K", "FT260724145742", "TXN260724145742", "ACB", "2167 •••• 3306", "Công ty TNHH Nam Việt", "-₫8,400,000", "Tiền ra: Rut tien ve tai khoan chinh", "Delivered", "Success", "24/07/2026 14:57:42"],
-      ["5", "txn_981236", "grt_2K8NP14D", "FT260724134519", "TXN260724134519", "BIDV", "2111 •••• 9024", "Trần Hoàng Long", "+₫1,500,000", "Tiền vào: Chuyen khoan tu BIDV", "Delivered", "Success", "24/07/2026 13:45:19"],
-      ["6", "txn_981235", "grt_9Q4LC73A", "FT260724132804", "TXN260724132804", "Sacombank", "0602 •••• 2180", "Công ty CP Nova Retail", "-₫15,800,000", "Tiền ra: Chi tra tien hang STB 0602", "Retrying", "Processing", "24/07/2026 13:28:04"],
-      ["7", "txn_981234", "grt_5M3KP82N", "FT260724121005", "TXN260724121005", "VietinBank", "1018 •••• 5541", "Nguyễn Văn Đức", "+₫4,250,000", "Tiền vào: Nhan tien thanh toan BH20482", "Delivered", "Success", "24/07/2026 12:10:05"],
-      ["8", "txn_981233", "grt_7B9RT14H", "FT260724110540", "TXN260724110540", "Techcombank", "1902 •••• 8812", "Hoàng Ngọc Sơn", "-₫2,100,000", "Tiền ra: Chuyen tien NCC Truong Son", "Delivered", "Success", "24/07/2026 11:05:40"],
-      ["9", "txn_981232", "grt_3C8VL90P", "FT260724102018", "TXN260724102018", "VPBank", "1542 •••• 9901", "Trịnh Bảo Ngọc", "+₫890,000", "Tiền vào: Thu ho tin dung VPBank", "Delivered", "Success", "24/07/2026 10:20:18"],
-      ["10", "txn_981231", "grt_9X2NY55T", "FT260724093550", "TXN260724093550", "Vietcombank", "1019 •••• 3342", "Phan Thanh Tùng", "-₫6,400,000", "Tiền ra: Thanh toan HD-0726-106", "Delivered", "Success", "24/07/2026 09:35:50"],
-      ["11", "txn_981230", "grt_1L8QP42K", "FT260724084215", "TXN260724084215", "TPBank", "0219 •••• 4410", "Vũ Thu Trang", "+₫18,200,000", "Tiền vào: Nhan chuyen khoan lon TPB", "Delivered", "Success", "24/07/2026 08:42:15"],
-      ["12", "txn_981229", "grt_6K4FD19M", "FT260723185030", "TXN260723185030", "BIDV", "2151 •••• 6678", "Đặng Quốc Huy", "-₫1,150,000", "Tiền ra: Phi duy tri tai khoan BIDV", "Delivered", "Success", "23/07/2026 18:50:30"],
-      ["13", "txn_981228", "grt_8P9WX33L", "FT260723172210", "TXN260723172210", "Techcombank", "1903 •••• 1129", "Bùi Mỹ Linh", "+₫7,500,000", "Tiền vào: Nhan tien dat coc studio", "Delivered", "Success", "23/07/2026 17:22:10"],
-      ["14", "txn_981227", "grt_2M7VT88D", "FT260723161045", "TXN260723161045", "MB Bank", "0682 •••• 9988", "Nguyễn Thái Dương", "-₫3,800,000", "Tiền ra: Chuyen tien thanh toan HD107", "Failed", "Failed", "23/07/2026 16:10:45"],
-      ["15", "txn_981226", "grt_4H9BN11Q", "FT260723145520", "TXN260723145520", "Sacombank", "0603 •••• 7712", "Lý Kim Ngân", "+₫12,400,000", "Tiền vào: Nhan tien thanh toan don 9015", "Delivered", "Success", "23/07/2026 14:55:20"],
+      ["1", "txn_981240", "grt_8L2KP91N", "FT260724164210", "BH20481", "Techcombank", "1903 •••• 4812", "Nguyễn Minh Anh", "+₫482,500", "Tiền vào: Nhan thanh toan BH20481", "Delivered", "24/07/2026 16:42:10"],
+      ["2", "txn_981239", "grt_4T7MD20Q", "FT260724161825", "INV20261902", "Vietcombank", "1028 •••• 1098", "Công ty CP Minh Long", "-₫12,650,000", "Tiền ra: Thanh toan phi dich vu VCB", "Delivered", "24/07/2026 16:18:25"],
+      ["3", "txn_981238", "grt_1A9HC63V", "FT260724153108", "POSMB9812", "MB Bank", "0681 •••• 6721", "Phạm Thùy Linh", "+₫3,200,000", "Tiền vào: Cong tien QR thanh toan", "Failed", "24/07/2026 15:31:08"],
+      ["4", "txn_981237", "grt_6P3RF82K", "FT260724145742", "HD0726105", "ACB", "2167 •••• 3306", "Công ty TNHH Nam Việt", "-₫8,400,000", "Tiền ra: Rut tien ve tai khoan chinh", "Delivered", "24/07/2026 14:57:42"],
+      ["5", "txn_981236", "grt_2K8NP14D", "FT260724134519", "ORDER9014", "BIDV", "2111 •••• 9024", "Trần Hoàng Long", "+₫1,500,000", "Tiền vào: Chuyen khoan tu BIDV", "Delivered", "24/07/2026 13:45:19"],
+      ["6", "txn_981235", "grt_9Q4LC73A", "FT260724132804", "POSNR0391", "Sacombank", "0602 •••• 2180", "Công ty CP Nova Retail", "-₫15,800,000", "Tiền ra: Chi tra tien hang STB 0602", "Retrying", "24/07/2026 13:28:04"],
+      ["7", "txn_981234", "grt_5M3KP82N", "FT260724121005", "BH20482", "VietinBank", "1018 •••• 5541", "Nguyễn Văn Đức", "+₫4,250,000", "Tiền vào: Nhan tien thanh toan BH20482", "Delivered", "24/07/2026 12:10:05"],
+      ["8", "txn_981233", "grt_7B9RT14H", "FT260724110540", "INV20261903", "Techcombank", "1902 •••• 8812", "Hoàng Ngọc Sơn", "-₫2,100,000", "Tiền ra: Chuyen tien NCC Truong Son", "Delivered", "24/07/2026 11:05:40"],
+      ["9", "txn_981232", "grt_3C8VL90P", "FT260724102018", "POSVP8812", "VPBank", "1542 •••• 9901", "Trịnh Bảo Ngọc", "+₫890,000", "Tiền vào: Thu ho tin dung VPBank", "Delivered", "24/07/2026 10:20:18"],
+      ["10", "txn_981231", "grt_9X2NY55T", "FT260724093550", "HD0726106", "Vietcombank", "1019 •••• 3342", "Phan Thanh Tùng", "-₫6,400,000", "Tiền ra: Thanh toan HD-0726-106", "Delivered", "24/07/2026 09:35:50"],
+      ["11", "txn_981230", "grt_1L8QP42K", "FT260724084215", "BH20483", "TPBank", "0219 •••• 4410", "Vũ Thu Trang", "+₫18,200,000", "Tiền vào: Nhan chuyen khoan lon TPB", "Delivered", "24/07/2026 08:42:15"],
+      ["12", "txn_981229", "grt_6K4FD19M", "FT260723185030", "INV20261904", "BIDV", "2151 •••• 6678", "Đặng Quốc Huy", "-₫1,150,000", "Tiền ra: Phi duy tri tai khoan BIDV", "Delivered", "23/07/2026 18:50:30"],
+      ["13", "txn_981228", "grt_8P9WX33L", "FT260723172210", "POSMB9813", "Techcombank", "1903 •••• 1129", "Bùi Mỹ Linh", "+₫7,500,000", "Tiền vào: Nhan tien dat coc studio", "Delivered", "23/07/2026 17:22:10"],
+      ["14", "txn_981227", "grt_2M7VT88D", "FT260723161045", "HD0726107", "MB Bank", "0682 •••• 9988", "Nguyễn Thái Dương", "-₫3,800,000", "Tiền ra: Chuyen tien thanh toan HD107", "Failed", "23/07/2026 16:10:45"],
+      ["15", "txn_981226", "grt_4H9BN11Q", "FT260723145520", "ORDER9015", "Sacombank", "0603 •••• 7712", "Lý Kim Ngân", "+₫12,400,000", "Tiền vào: Nhan tien thanh toan don 9015", "Delivered", "23/07/2026 14:55:20"],
     ],
   },
   Transfer: {
-    title: "Lệnh chuyển tiền",
-    columns: ["Transfer ID", "Grant ID", "Từ ngân hàng", "Người hưởng / Ngân hàng", "Số tiền", "Nội dung", "Trạng thái", "Ngày tạo"],
+    title: "Lịch sử lệnh chuyển tiền (Transfer)",
+    columns: ["STT", "transaction id", "grantID", "Reference", "Ngân hàng gửi", "Tên người gửi", "STK gửi", "Ngân hàng nhận", "Tên người nhận", "STK nhận", "Số tiền", "Nội dung", "Trạng thái", "Thời gian"],
     rows: [
-      ["trf_82MP91", "grt_2K8NP14D", "BIDV", "Nguyễn Minh Anh · TCB", "₫5,200,000", "Thanh toan HĐ 1842", "Success", "24/07 · 16:12"],
-      ["trf_47QD20", "grt_8L2KP91N", "Techcombank", "Công ty Minh Long · VCB", "₫18,400,000", "Payment INV-841", "Processing", "24/07 · 15:48"],
-      ["trf_19VC63", "grt_4T7MD20Q", "Vietcombank", "Trần Hoàng Long · BIDV", "₫2,100,000", "Hoàn ứng", "Failed", "24/07 · 15:07"],
-      ["trf_63RF82", "grt_6P3RF82K", "ACB", "Nova Retail · STB", "₫32,500,000", "Đối soát 23/07", "Success", "24/07 · 14:33"],
+      ["1", "trf_82MP91", "grt_2K8NP14D", "FT260724161208", "BIDV", "Trần Hoàng Long", "2111 •••• 9024", "Techcombank", "Nguyễn Minh Anh", "1903 •••• 4812", "₫5,200,000", "Thanh toan hop dong 1842", "Success", "24/07/2026 16:12:08"],
+      ["2", "trf_47QD20", "grt_8L2KP91N", "FT260724154832", "Techcombank", "Nguyễn Minh Anh", "1903 •••• 4812", "Vietcombank", "Công ty CP Minh Long", "1028 •••• 1098", "₫18,400,000", "Thanh toan hoa don INV-841", "Processing", "24/07/2026 15:48:32"],
+      ["3", "trf_19VC63", "grt_4T7MD20Q", "FT260724150719", "Vietcombank", "Công ty CP Minh Long", "1028 •••• 1098", "BIDV", "Trần Hoàng Long", "2111 •••• 9024", "₫2,100,000", "Hoan ung chi phi du lich", "Failed", "24/07/2026 15:07:19"],
+      ["4", "trf_63RF82", "grt_6P3RF82K", "FT260724143340", "ACB", "Công ty TNHH Nam Việt", "2167 •••• 3306", "Sacombank", "Công ty CP Nova Retail", "0602 •••• 2180", "₫32,500,000", "Doi soat doanh thu 23/07", "Success", "24/07/2026 14:33:40"],
+      ["5", "trf_94LC73", "grt_1A9HC63V", "FT260724131502", "MB Bank", "Phạm Thùy Linh", "0681 •••• 6721", "Techcombank", "Nguyễn Minh Anh", "1903 •••• 4812", "₫1,850,000", "Thanh toan don hang BH10429", "Success", "24/07/2026 13:15:02"],
+      ["6", "trf_84291N", "grt_9Q4LC73A", "FT260724114255", "Sacombank", "Công ty CP Nova Retail", "0602 •••• 2180", "ACB", "Công ty TNHH Nam Việt", "2167 •••• 3306", "₫14,200,000", "Thanh toan tien nhap hang STB", "Success", "24/07/2026 11:42:55"],
+      ["7", "trf_55MK32", "grt_5M3KP82N", "FT260724103010", "VietinBank", "Nguyễn Văn Đức", "1018 •••• 5541", "MB Bank", "Phạm Thùy Linh", "0681 •••• 6721", "₫6,800,000", "Chuyen tien tam ung du an", "Success", "24/07/2026 10:30:10"],
+      ["8", "trf_77HS14", "grt_7B9RT14H", "FT260724091522", "Techcombank", "Hoàng Ngọc Sơn", "1902 •••• 8812", "BIDV", "Trần Hoàng Long", "2111 •••• 9024", "₫22,500,000", "Thanh toan hop dong 1908", "Success", "24/07/2026 09:15:22"],
+      ["9", "trf_33BN90", "grt_3C8VL90P", "FT260724084005", "VPBank", "Trịnh Bảo Ngọc", "1542 •••• 9901", "Vietcombank", "Công ty CP Minh Long", "1028 •••• 1098", "₫3,400,000", "Thanh toan phi dich vu VPB", "Processing", "24/07/2026 08:40:05"],
+      ["10", "trf_99TT55", "grt_9X2NY55T", "FT260723175040", "Vietcombank", "Phan Thanh Tùng", "1019 •••• 3342", "ACB", "Công ty TNHH Nam Việt", "2167 •••• 3306", "₫9,600,000", "Chuyen tien vat tu Saigon Tech", "Success", "23/07/2026 17:50:40"],
+      ["11", "trf_11VT42", "grt_1L8QP42K", "FT260723162015", "TPBank", "Vũ Thu Trang", "0219 •••• 4410", "Techcombank", "Nguyễn Minh Anh", "1903 •••• 4812", "₫1,250,000", "Hoan tien don hang bi loi", "Success", "23/07/2026 16:20:15"],
+      ["12", "trf_66QH19", "grt_6K4FD19M", "FT260723151030", "BIDV", "Đặng Quốc Huy", "2151 •••• 6678", "VietinBank", "Nguyễn Văn Đức", "1018 •••• 5541", "₫15,300,000", "Thanh toan hoa don Hoang Gia", "Failed", "23/07/2026 15:10:30"],
+      ["13", "trf_88ML33", "grt_8P9WX33L", "FT260723140512", "Techcombank", "Bùi Mỹ Linh", "1903 •••• 1129", "Sacombank", "Công ty CP Nova Retail", "0602 •••• 2180", "₫4,700,000", "Thanh toan chi phi nhac kich", "Success", "23/07/2026 14:05:12"],
+      ["14", "trf_22AD88", "grt_2M7VT88D", "FT260723113545", "MB Bank", "Nguyễn Thái Dương", "0682 •••• 9988", "BIDV", "Trần Hoàng Long", "2111 •••• 9024", "₫8,100,000", "Thanh toan cuoc van chuyen", "Success", "23/07/2026 11:35:45"],
+      ["6", "trf_84291N", "grt_9Q4LC73A", "FT260724114255", "Sacombank", "Công ty CP Nova Retail", "0602 •••• 2180", "ACB", "Công ty TNHH Nam Việt", "2167 •••• 3306", "₫14,200,000", "Thanh toan tien nhap hang STB", "Success", "24/07/2026 11:42:55"],
     ],
   },
   eKYC: {
@@ -305,12 +372,231 @@ const logRecords: LogRecord[] = [
   { requestId: "req_7qVUAW2ON3vx_hm9", method: "GET", endpoint: "/v2/transactions", scope: "Transaction", grantId: "grt_8L2KP91N", bank: "Techcombank", http: "200", latency: "284 ms", createdAt: "17:04:52 24/07/2026", requestBody: "{\n  \"from\": \"2026-07-01\",\n  \"to\": \"2026-07-24\",\n  \"page\": 1,\n  \"limit\": 50\n}", responseBody: "{\n  \"data\": {\n    \"transactions\": [\n      { \"id\": \"txn_82MP91\", \"amount\": 2450000, \"currency\": \"VND\" }\n    ],\n    \"total\": 128\n  }\n}" },
   { requestId: "req_OljkRZCSFR1cnaQW", method: "GET", endpoint: "/v2/balance", scope: "Balance", grantId: "grt_4T7MD20Q", bank: "Vietcombank", http: "200", latency: "326 ms", createdAt: "16:42:57 24/07/2026", requestBody: "{\n  \"accountId\": \"acc_4J8K2P\"\n}", responseBody: "{\n  \"data\": {\n    \"available\": 48250000,\n    \"current\": 49500000,\n    \"currency\": \"VND\"\n  }\n}" },
   { requestId: "req_L0rkB2btr5YGH806", method: "POST", endpoint: "/v2/transfers", scope: "Transfer", grantId: "grt_1A9HC63V", bank: "MB Bank", http: "400", latency: "412 ms", createdAt: "09:21:52 24/07/2026", requestBody: "{\n  \"amount\": -500000,\n  \"toAccount\": \"0123456789\",\n  \"description\": \"Thanh toan hoa don\"\n}", responseBody: "{\n  \"error\": {\n    \"code\": \"INVALID_AMOUNT\",\n    \"message\": \"amount must be greater than zero\",\n    \"field\": \"amount\"\n  }\n}" },
-  { requestId: "req_G1UZLSe4PO6m6qAa", method: "GET", endpoint: "/v2/identity", scope: "Identity", grantId: "grt_6P3RF82K", bank: "ACB", http: "401", latency: "198 ms", createdAt: "09:21:48 24/07/2026", requestBody: "{}", responseBody: "{\n  \"error\": {\n    \"code\": \"ACCESS_TOKEN_INVALID\",\n    \"message\": \"Access token is invalid or has been revoked\"\n  }\n}" },
-  { requestId: "req_FNR6ALvSb1hzMZMC", method: "POST", endpoint: "/v2/qr/create", scope: "QRPay", grantId: "grt_8L2KP91N", bank: "Techcombank", http: "200", latency: "365 ms", createdAt: "09:21:42 24/07/2026", requestBody: "{\n  \"amount\": 125000,\n  \"description\": \"Order BH-10428\"\n}", responseBody: "{\n  \"data\": {\n    \"qrId\": \"qr_M20P81\",\n    \"status\": \"PENDING\",\n    \"expiredAt\": \"2026-07-24T09:36:42+07:00\"\n  }\n}" },
-  { requestId: "req_d1S1tc-hYOtKNj6P", method: "POST", endpoint: "/grant/exchange", scope: "Grant", grantId: "grt_4T7MD20Q", bank: "Vietcombank", http: "429", latency: "602 ms", createdAt: "09:21:37 24/07/2026", requestBody: "{\n  \"publicToken\": \"pub_••••••••91Q\"\n}", responseBody: "{\n  \"error\": {\n    \"code\": \"RATE_LIMIT_EXCEEDED\",\n    \"message\": \"Too many requests. Please retry later\"\n  }\n}" },
-  { requestId: "req_MV3C84FP9kQ2Ls71", method: "GET", endpoint: "/v2/virtual-accounts", scope: "VirtualAccount", grantId: "grt_6P3RF82K", bank: "ACB", http: "200", latency: "241 ms", createdAt: "08:56:11 24/07/2026", requestBody: "{\n  \"status\": \"ACTIVE\"\n}", responseBody: "{\n  \"data\": [{ \"id\": \"va_82JF91\", \"status\": \"ACTIVE\" }]\n}" },
-  { requestId: "req_AB5R72WQ1xP4Nc90", method: "GET", endpoint: "/v2/invoices", scope: "Invoice", grantId: "grt_1A9HC63V", bank: "MB Bank", http: "500", latency: "814 ms", createdAt: "08:43:09 24/07/2026", requestBody: "{\n  \"month\": \"2026-07\"\n}", responseBody: "{\n  \"error\": {\n    \"code\": \"UPSTREAM_ERROR\",\n    \"message\": \"The financial institution is temporarily unavailable\"\n  }\n}" },
 ];
+
+type ChartTimeRange = "24h" | "7d" | "jul26" | "jun26" | "may26";
+
+function getChartData(tab: AnalyticsTab, range: ChartTimeRange) {
+  const labelsMap: Record<AnalyticsTab, { title: string; primary: string; secondary: string; unit: string }> = {
+    Connection: { title: "Grant thêm mới", primary: "Grant mới", secondary: "Pause / Delete", unit: "grant" },
+    Transaction: { title: "Xu hướng giao dịch Transaction", primary: "GD thành công", secondary: "GD thất bại", unit: "giao dịch" },
+    QRPay: { title: "Xu hướng thanh toán QR Pay", primary: "Thành công", secondary: "Hủy / Hết hạn", unit: "giao dịch" },
+    VirtualAccount: { title: "Xu hướng tạo Virtual Account", primary: "Tạo mới", secondary: "Xóa", unit: "giao dịch" },
+    BalanceHook: { title: "Xu hướng thông báo Balance Hook", primary: "Webhook thành công", secondary: "Lỗi / Retry", unit: "thông báo" },
+    Transfer: { title: "Xu hướng chuyển tiền Transfer", primary: "Chuyển tiền thành công", secondary: "Thất bại", unit: "giao dịch" },
+    Identity: { title: "Xu hướng gọi API Identity", primary: "Thành công", secondary: "Lỗi", unit: "calls" },
+    Balance: { title: "Xu hướng tra cứu Balance", primary: "Thành công", secondary: "Lỗi", unit: "calls" },
+    eKYC: { title: "Xu hướng xác thực eKYC", primary: "Thành công", secondary: "Lỗi", unit: "lượt" },
+    Invoice: { title: "Xu hướng xuất Invoice", primary: "Hợp lệ", secondary: "Hủy", unit: "hóa đơn" },
+  };
+
+  const meta = labelsMap[tab] || labelsMap.Transaction;
+
+  let timeText = "";
+  let xLabels: string[] = [];
+  let primaryValues: number[] = [];
+  let secondaryValues: number[] = [];
+  let maxY = 100;
+
+  if (range === "24h") {
+    timeText = "24 giờ qua";
+    maxY = tab === "Connection" ? 10 : 2500;
+    xLabels = Array.from({ length: 24 }, (_, i) => `${String(i).padStart(2, "0")}h`);
+    if (tab === "Connection") {
+      primaryValues = [1, 0, 0, 0, 1, 2, 4, 6, 8, 9, 7, 8, 6, 9, 8, 7, 9, 6, 5, 4, 3, 2, 1, 1];
+      secondaryValues = [0, 0, 0, 0, 0, 1, 0, 1, 1, 0, 1, 0, 2, 1, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0];
+    } else {
+      primaryValues = [120, 80, 45, 30, 90, 310, 850, 1420, 1890, 2100, 1950, 2240, 1800, 2350, 2120, 1980, 2050, 1750, 1320, 980, 750, 520, 340, 210];
+      secondaryValues = [2, 1, 0, 0, 1, 4, 12, 24, 31, 38, 29, 35, 22, 41, 30, 25, 28, 20, 15, 10, 8, 5, 3, 2];
+    }
+  } else if (range === "7d") {
+    timeText = "7 ngày qua (23/07–29/07)";
+    maxY = tab === "Connection" ? 12 : 18000;
+    xLabels = ["23/07", "24/07", "25/07", "26/07", "27/07", "28/07", "29/07"];
+    if (tab === "Connection") {
+      primaryValues = [6, 8, 7, 9, 7, 10, 8];
+      secondaryValues = [1, 0, 1, 2, 0, 1, 1];
+    } else {
+      primaryValues = [12400, 14800, 13900, 16200, 15800, 17400, 16900];
+      secondaryValues = [180, 220, 195, 240, 210, 260, 230];
+    }
+  } else if (range === "jun26") {
+    timeText = "01/06–30/06/2026";
+    maxY = tab === "Connection" ? 10 : 100;
+    xLabels = Array.from({ length: 30 }, (_, i) => String(i + 1));
+    if (tab === "Connection") {
+      primaryValues = [2, 3, 4, 3, 5, 4, 6, 5, 4, 6, 5, 7, 6, 5, 7, 6, 8, 7, 6, 7, 6, 8, 7, 6, 7, 8, 6, 7, 6, 8];
+      secondaryValues = [0, 1, 0, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 2, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1];
+    } else {
+      primaryValues = [30, 35, 33, 40, 38, 44, 42, 48, 45, 52, 49, 56, 53, 59, 56, 62, 59, 65, 63, 68, 65, 72, 69, 75, 72, 79, 76, 82, 80, 85];
+      secondaryValues = [2, 3, 2, 4, 3, 4, 3, 5, 4, 5, 4, 6, 5, 6, 5, 6, 5, 7, 6, 7, 6, 7, 6, 8, 7, 8, 7, 8, 7, 9];
+    }
+  } else if (range === "may26") {
+    timeText = "01/05–31/05/2026";
+    maxY = tab === "Connection" ? 10 : 100;
+    xLabels = Array.from({ length: 31 }, (_, i) => String(i + 1));
+    if (tab === "Connection") {
+      primaryValues = [3, 2, 4, 3, 5, 4, 5, 6, 4, 5, 6, 5, 7, 6, 5, 7, 6, 7, 8, 6, 7, 6, 8, 7, 6, 8, 7, 6, 8, 7, 9];
+      secondaryValues = [1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 2, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0];
+    } else {
+      primaryValues = [25, 28, 27, 32, 30, 36, 34, 40, 37, 43, 40, 47, 44, 50, 48, 54, 51, 57, 55, 60, 58, 64, 61, 67, 65, 71, 68, 74, 72, 78, 76];
+      secondaryValues = [1, 2, 1, 3, 2, 3, 2, 4, 3, 4, 3, 5, 4, 5, 4, 5, 4, 6, 5, 6, 5, 6, 5, 7, 6, 7, 6, 7, 6, 8, 7];
+    }
+  } else {
+    timeText = "01/07–31/07/2026";
+    maxY = tab === "Connection" ? 10 : 100;
+    xLabels = Array.from({ length: 31 }, (_, i) => String(i + 1));
+    if (tab === "Connection") {
+      primaryValues = [3, 4, 3, 5, 4, 6, 5, 5, 4, 7, 5, 6, 5, 7, 5, 8, 6, 5, 7, 6, 8, 5, 7, 6, 9, 7, 6, 8, 7, 9, 6];
+      secondaryValues = [0, 1, 0, 1, 0, 1, 1, 0, 1, 1, 0, 1, 0, 2, 1, 0, 1, 1, 0, 1, 2, 0, 1, 1, 0, 2, 1, 0, 1, 1, 0];
+    } else {
+      primaryValues = [34, 39, 37, 45, 42, 49, 47, 52, 50, 57, 54, 61, 59, 64, 62, 69, 66, 72, 70, 76, 73, 81, 78, 84, 82, 88, 85, 91, 89, 94, 92];
+      secondaryValues = Array.from({ length: 31 }, (_, i) => 2 + (i % 4));
+    }
+  }
+
+  return {
+    title: `${meta.title} · ${timeText}`,
+    primaryLabel: meta.primary,
+    secondaryLabel: meta.secondary,
+    unit: meta.unit,
+    xLabels,
+    primaryValues,
+    secondaryValues,
+    maxY,
+  };
+}
+
+function getTabMetrics(tab: AnalyticsTab, range: ChartTimeRange) {
+  const base = analyticsData[tab]?.metrics || analyticsData.Connection.metrics;
+  if (range === "jul26") return base;
+
+  if (range === "24h") {
+    return base.map(m => {
+      if (m.unit === "grant" || m.unit === "VA") return m;
+      const valNum = parseInt(m.value.replace(/\./g, ""), 10);
+      if (!isNaN(valNum) && valNum > 100) {
+        const dailyVal = Math.round(valNum / 30);
+        return { ...m, value: dailyVal.toLocaleString("vi-VN") };
+      }
+      return m;
+    });
+  }
+
+  if (range === "7d") {
+    return base.map(m => {
+      if (m.unit === "grant" || m.unit === "VA") return m;
+      const valNum = parseInt(m.value.replace(/\./g, ""), 10);
+      if (!isNaN(valNum) && valNum > 100) {
+        const weeklyVal = Math.round((valNum * 7) / 30);
+        return { ...m, value: weeklyVal.toLocaleString("vi-VN") };
+      }
+      return m;
+    });
+  }
+
+  if (range === "jun26") {
+    return base.map(m => {
+      const valNum = parseInt(m.value.replace(/\./g, ""), 10);
+      if (!isNaN(valNum) && valNum > 50) {
+        const juneVal = Math.round(valNum * 0.94);
+        return { ...m, value: juneVal.toLocaleString("vi-VN") };
+      }
+      return m;
+    });
+  }
+
+  if (range === "may26") {
+    return base.map(m => {
+      const valNum = parseInt(m.value.replace(/\./g, ""), 10);
+      if (!isNaN(valNum) && valNum > 50) {
+        const mayVal = Math.round(valNum * 0.88);
+        return { ...m, value: mayVal.toLocaleString("vi-VN") };
+      }
+      return m;
+    });
+  }
+
+  return base;
+}
+
+function mapTimeFilterToRange(filter: string): ChartTimeRange {
+  if (filter === "24h" || filter === "24 giờ qua") return "24h";
+  if (filter === "7d" || filter === "7 ngày qua") return "7d";
+  if (filter === "Tháng 06/2026" || filter === "jun26") return "jun26";
+  if (filter === "Tháng 05/2026" || filter === "may26") return "may26";
+  return "jul26";
+}
+
+function AnalyticsPanel({ tab, search, onSearch, timeFilter, onTimeFilter, page, setPage, pageSize, setPageSize, showNotice }: {
+  tab: AnalyticsTab;
+  search: string;
+  onSearch: (value: string) => void;
+  timeFilter: string;
+  onTimeFilter: (value: string) => void;
+  page: number;
+  setPage: (value: number) => void;
+  pageSize: number;
+  setPageSize: (value: number) => void;
+  showNotice: (message: string) => void;
+}) {
+  const chartTimeRange = mapTimeFilterToRange(timeFilter);
+  const chartData = getChartData(tab, chartTimeRange);
+  const metrics = getTabMetrics(tab, chartTimeRange);
+
+  return (
+    <section className="panel compact-analytics usage-content">
+      <div className={`compact-kpis ${metrics.length === 5 ? "five-columns" : ""}`}>
+        {metrics.map(metric => (
+          <div key={metric.label}>
+            <span>{metric.label}</span>
+            <strong><KpiValue value={metric.value} unit={metric.unit} /></strong>
+            {metric.change && <small className={metric.tone}>↗ {metric.change}</small>}
+          </div>
+        ))}
+      </div>
+      <div className="wide-chart">
+        <div className="mini-chart-title">
+          <span>{chartData.title}</span>
+          <div className="chart-legend-wrap">
+            <i className="primary-dot" />{chartData.primaryLabel}
+            <i className="secondary-dot" />{chartData.secondaryLabel}
+          </div>
+        </div>
+        <div className="chart">
+          <div className="y-axis">
+            <span>{chartData.maxY >= 1000 ? `${(chartData.maxY / 1000).toFixed(0)}k` : chartData.maxY}</span>
+            <span>{chartData.maxY >= 1000 ? `${((chartData.maxY * 0.6) / 1000).toFixed(0)}k` : Math.round(chartData.maxY * 0.6)}</span>
+            <span>{chartData.maxY >= 1000 ? `${((chartData.maxY * 0.3) / 1000).toFixed(0)}k` : Math.round(chartData.maxY * 0.3)}</span>
+            <span>0</span>
+          </div>
+          <div className="bars">
+            {chartData.primaryValues.map((val, i) => {
+              const secVal = chartData.secondaryValues[i] || 0;
+              const pHeight = Math.min(100, Math.max(4, (val / chartData.maxY) * 100));
+              const sHeight = Math.min(100, Math.max(2, (secVal / chartData.maxY) * 100));
+              const xLabel = chartData.xLabels[i];
+              return (
+                <div className="bar-slot" key={i}>
+                  <span style={{ height: `${pHeight}%` }} />
+                  <i style={{ height: `${sHeight}%` }} />
+                  <small>{xLabel}</small>
+                  <em className="chart-hover-card">
+                    <b>{chartTimeRange === "24h" ? `Khung ${xLabel}` : `Ngày ${xLabel}`}</b>
+                    <span>{chartData.primaryLabel}: {val.toLocaleString("vi-VN")} {chartData.unit}</span>
+                    <span>{chartData.secondaryLabel}: {secVal.toLocaleString("vi-VN")} {chartData.unit}</span>
+                  </em>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
+      <UsageRecordsTable key={tab} tab={tab} search={search} onSearch={onSearch} timeFilter={timeFilter} onTimeFilter={onTimeFilter} page={page} setPage={setPage} pageSize={pageSize} setPageSize={setPageSize} showNotice={showNotice} />
+    </section>
+  );
+}
 
 export default function Home() {
   const [selectedApp, setSelectedApp] = useState(apps[0]);
@@ -343,8 +629,8 @@ export default function Home() {
   const paginatedRows = filteredRows.slice((currentPage - 1) * pageSize, currentPage * pageSize);
   const isDeveloperPage = activeNav === "API keys" || activeNav === "API" || activeNav === "Webhooks";
 
-  function showNotice(message: string) {
-    setNotice(message);
+  function showNotice(msg: string) {
+    setNotice(msg);
     window.setTimeout(() => setNotice(""), 2400);
   }
 
@@ -391,24 +677,15 @@ export default function Home() {
       </aside>
 
       <div className="workspace">
-        <header className="topbar"><button className="mobile-trigger" onClick={() => setMobileMenu(true)}>☰</button><div className="crumbs"><span>{selectedApp.name}</span><b>/</b><strong>{activeNav}</strong>{activeNav === "Usage" && <><b>/</b><strong>{usageView === "Connection" ? "Grant" : usageView}</strong></>}</div><div className="top-actions"><button className="status-pill"><i />Hệ thống ổn định</button><button className="icon-button">⌕</button><button className="language">VI⌄</button><span className="user-avatar">MN</span></div></header>
+        <header className="topbar"><button className="mobile-trigger" onClick={() => setMobileMenu(true)}>☰</button><div className="crumbs"><span>{selectedApp.name}</span><b>/</b><strong>{activeNav}</strong>{activeNav === "Usage" && <><b>/</b><strong>{usageView === "Connection" ? "Grant" : usageView === "VirtualAccount" ? "Virtual Account" : usageView === "BalanceHook" ? "Balance Hook" : usageView}</strong></>}</div><div className="top-actions"><button className="status-pill"><i />Hệ thống ổn định</button><button className="icon-button">⌕</button><button className="language">VI⌄</button><span className="user-avatar">MN</span></div></header>
         <main className="main compact-main">
           {notice && <div className="toast"><span>✓</span>{notice}</div>}
 
-          {activeNav === "Usage" ? (
+          {activeNav === "Grants" || activeNav === "Connections" ? (
+            <AnalyticsPanel tab="Connection" search={search} onSearch={setSearch} timeFilter={timeFilter} onTimeFilter={setTimeFilter} page={page} setPage={setPage} pageSize={pageSize} setPageSize={setPageSize} showNotice={showNotice} />
+          ) : activeNav === "Usage" ? (
             <>
-              {usageView === "Total" ? <UsageTotal showNotice={showNotice} /> : <section className="panel compact-analytics usage-content">
-                <div className={`compact-kpis ${analyticsTab === "Connection" || analyticsTab === "QRPay" ? "five-columns" : ""}`}>{analytics.metrics.map(metric => <div key={metric.label}><span>{metric.label}</span><strong><KpiValue value={metric.value} /></strong>{metric.change && <small className={metric.tone}>↗ {metric.change}</small>}</div>)}</div>
-                <div className="wide-chart">
-                  <div className="mini-chart-title"><span>{analyticsTab === "Connection" ? "Grant thêm mới theo ngày" : "Xu hướng API calls"} · 01/07–31/07/2026</span><div><i />{analyticsTab === "Connection" ? "Grant mới" : "API calls"} <i />{analyticsTab === "Connection" ? "Pause / Delete" : "Failed"}</div></div>
-                  <div className="chart"><div className="y-axis">{analyticsTab === "Connection" ? <><span>10</span><span>7</span><span>4</span><span>0</span></> : <><span>60k</span><span>40k</span><span>20k</span><span>0</span></>}</div><div className="bars">{(analyticsTab === "Connection" ? grantNewDaily : monthChartValues).map((value, i) => {
-                    const secondary = analyticsTab === "Connection" ? grantPausedDeletedDaily[i] : 3 + (i % 4);
-                    return <div className="bar-slot" key={i}><span style={{ height: `${analyticsTab === "Connection" ? value * 10 : value}%` }} /><i style={{ height: `${analyticsTab === "Connection" ? secondary * 10 : secondary}%` }} /><small>{i + 1}</small><em className="chart-hover-card"><b>Ngày {i + 1}</b><span>{analyticsTab === "Connection" ? "Grant mới" : "API calls"}: {value}</span><span>{analyticsTab === "Connection" ? "Pause/Delete" : "Failed"}: {secondary}</span></em></div>;
-                  })}</div></div>
-                </div>
-
-                <UsageRecordsTable key={analyticsTab} tab={analyticsTab} search={search} onSearch={setSearch} timeFilter={timeFilter} onTimeFilter={setTimeFilter} page={page} setPage={setPage} pageSize={pageSize} setPageSize={setPageSize} showNotice={showNotice} />
-              </section>}
+              {usageView === "Total" ? <UsageTotal onSelectTab={tab => { setUsageView(tab); setAnalyticsTab(tab); setPage(1); }} showNotice={showNotice} /> : <AnalyticsPanel tab={analyticsTab} search={search} onSearch={setSearch} timeFilter={timeFilter} onTimeFilter={setTimeFilter} page={page} setPage={setPage} pageSize={pageSize} setPageSize={setPageSize} showNotice={showNotice} />}
             </>
           ) : activeNav === "Tổng quan" ? <OnboardingScreen onNavigate={setActiveNav} showNotice={showNotice} /> : activeNav === "Logs" ? <LogsScreen showNotice={showNotice} /> : isDeveloperPage ? <DeveloperSettings page={activeNav as "API keys" | "API" | "Webhooks"} showNotice={showNotice} /> : <DataScreen data={screenData[activeNav]} showNotice={showNotice} />}
         </main>
@@ -418,36 +695,75 @@ export default function Home() {
   );
 }
 
-function UsageTotal({ showNotice }: { showNotice: (message: string) => void }) {
+function UsageTotal({ onSelectTab, showNotice }: { onSelectTab?: (tab: AnalyticsTab) => void; showNotice: (message: string) => void }) {
   const [paymentState, setPaymentState] = useState<"unpaid" | "scanning" | "paid">("unpaid");
-  const billingRows = [
-    ["Grant", "2,847 connections", "Miễn phí", "₫0"],
-    ["Transaction", "426,800 calls", "₫50 / call", "₫21,340,000"],
-    ["Balance", "281,400 calls", "₫35 / call", "₫9,849,000"],
-    ["QRPay", "146,700 calls", "₫40 / call", "₫5,868,000"],
-    ["Transfer", "108,200 calls", "₫80 / call", "₫8,656,000"],
+  const [wantEinvoice, setWantEinvoice] = useState(true);
+  const [showInvoiceModal, setShowInvoiceModal] = useState(false);
+
+  const [einvoiceCompany, setEinvoiceCompany] = useState("Công ty CP VietFin Digital");
+  const [einvoiceTaxId, setEinvoiceTaxId] = useState("0317849201");
+  const [einvoiceEmail, setEinvoiceEmail] = useState("ketoan@vietfin.vn");
+  const [einvoiceAddress, setEinvoiceAddress] = useState("Tầng 12, Tòa nhà VietFin, 180 Nguyễn Thị Minh Khai, Q.3, TP.HCM");
+  const [einvoiceNote, setEinvoiceNote] = useState("Xuất HĐĐT kỳ 07/2026 cho HĐ CAS-2026-07");
+
+  const billingItems: { tab: AnalyticsTab; name: string; volume: string; rate: string; cost: string }[] = [
+    { tab: "Connection", name: "Grant Connection", volume: "2.847 connections", rate: "Miễn phí", cost: "₫0" },
+    { tab: "Transaction", name: "Transaction", volume: "62 grant · 426.800 calls", rate: "100.000đ/grant + 30.000đ/1.000 API calls", cost: "₫19.004.000" },
+    { tab: "QRPay", name: "QR Pay", volume: "132.400 GD thành công", rate: "50đ + 0.3% / GD (max 2.000đ)", cost: "₫14.280.000" },
+    { tab: "VirtualAccount", name: "Virtual Account", volume: "1.520 VA hoạt động", rate: "1.000đ / VA hoạt động", cost: "₫1.520.000" },
+    { tab: "BalanceHook", name: "Balance Hook", volume: "280.900 thông báo", rate: "300đ / thông báo thành công", cost: "₫84.270.000" },
+    { tab: "Transfer", name: "Transfer", volume: "107.800 GD thành công", rate: "2.000đ / GD thành công", cost: "₫215.600.000" },
   ];
 
   return <div className="usage-total">
-    <section className="summary-strip usage-summary">
-      <div><span>Tổng Grant</span><strong>2.847</strong><small>+8.4%</small></div>
-      <div><span>Tổng API calls</span><strong>963.100</strong><small>+12.6%</small></div>
-      <div><span>Tỷ lệ thành công</span><strong>99.72%</strong><small>Ổn định</small></div>
-      <div><span>Cần thanh toán</span><strong><KpiValue value="50.284.300 VNĐ" /></strong><small>{paymentState === "paid" ? "Đã thanh toán" : "Chưa thanh toán"}</small></div>
-    </section>
     <section className="total-billing-layout">
       <div className="panel billing-breakdown">
-        <div className="total-section-heading"><div><h2>Chi phí theo dịch vụ</h2><p>Kỳ sử dụng 01/07–31/07/2026</p></div><select aria-label="Kỳ thanh toán"><option>Tháng 07/2026</option><option>Tháng 06/2026</option><option>Tháng 05/2026</option></select></div>
-        <table><thead><tr><th>Dịch vụ</th><th>Sản lượng</th><th>Đơn giá</th><th>Thành tiền</th></tr></thead><tbody>{billingRows.map(row => <tr key={row[0]}>{row.map((cell, index) => <td key={cell}>{index === 0 ? <strong>{cell}</strong> : cell}</td>)}</tr>)}</tbody></table>
+        <div className="total-section-heading"><div><h2>Chi phí theo dịch vụ</h2><p>Kỳ sử dụng 01/07–31/07/2026 · Gói Vendor (Sàn 13.237.500 VNĐ)</p></div><select aria-label="Kỳ thanh toán"><option>Tháng 07/2026</option><option>Tháng 06/2026</option><option>Tháng 05/2026</option></select></div>
+        <table>
+          <thead><tr><th>Dịch vụ</th><th>Sản lượng</th><th>Đơn giá</th><th>Thành tiền</th></tr></thead>
+          <tbody>
+            {billingItems.map(item => (
+              <tr key={item.name} style={{ cursor: "pointer" }} onClick={() => onSelectTab?.(item.tab)}>
+                <td><strong>{item.name}</strong></td>
+                <td>{item.volume}</td>
+                <td>{item.rate}</td>
+                <td><strong>{item.cost}</strong></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
       <aside className="panel invoice-summary">
         <div className="invoice-status-line"><span className="invoice-label">KỲ THANH TOÁN</span><span className={`invoice-payment-status ${paymentState}`}>{paymentState === "paid" ? "Đã thanh toán" : "Chưa thanh toán"}</span></div>
         <h2>Tháng 07/2026</h2>
-        <dl><div><dt>Tạm tính</dt><dd>₫45,713,000</dd></div><div><dt>Thuế VAT (10%)</dt><dd>₫4,571,300</dd></div><div className="invoice-total"><dt>Tổng thanh toán</dt><dd>₫50,284,300</dd></div></dl>
-        <p>{paymentState === "paid" ? "Thanh toán thành công lúc 10:24 27/07/2026. Hoá đơn điện tử đã sẵn sàng." : "Thanh toán trước ngày 01/08/2026. Hoá đơn chỉ được phát hành sau khi giao dịch thành công."}</p>
+        <dl>
+          <div><dt>Tạm tính</dt><dd>₫334,674,000</dd></div>
+          <div><dt>Thuế VAT (10%)</dt><dd>₫33,467,400</dd></div>
+          <div className="invoice-total"><dt>Tổng thanh toán</dt><dd>₫368,141,400</dd></div>
+        </dl>
+        <div className="invoice-toggle-box">
+          <label className="invoice-checkbox-label">
+            <input type="checkbox" checked={wantEinvoice} onChange={e => {
+              const checked = e.target.checked;
+              setWantEinvoice(checked);
+              if (checked) setShowInvoiceModal(true);
+            }} />
+            <span>Xuất hóa đơn VAT điện tử (e-Invoice)</span>
+          </label>
+          {wantEinvoice && (
+            <div className="einvoice-summary-badge">
+              <div className="badge-text">
+                <strong>{einvoiceCompany}</strong>
+                <small>MST: {einvoiceTaxId} · {einvoiceEmail}</small>
+              </div>
+              <button type="button" className="edit-invoice-btn" onClick={() => setShowInvoiceModal(true)}>Sửa</button>
+            </div>
+          )}
+        </div>
+        <p>{paymentState === "paid" ? `Thanh toán thành công lúc 10:24 27/07/2026. ${wantEinvoice ? `Hóa đơn đã gửi tới ${einvoiceEmail}` : "Giao dịch không yêu cầu HĐĐT."}` : wantEinvoice ? `Hóa đơn VAT sẽ được tự động gửi tới ${einvoiceEmail} ngay sau khi chuyển khoản.` : "Thanh toán trước ngày 01/08/2026."}</p>
         {paymentState === "paid"
-          ? <button className="primary-button" onClick={() => showNotice("Đã xuất hoá đơn tháng 07/2026")}>⇩ Xuất hóa đơn</button>
-          : <button className="primary-button payment-button" onClick={() => setPaymentState("scanning")}>Thanh toán ₫50,284,300</button>}
+          ? <button className="primary-button" onClick={() => showNotice(wantEinvoice ? `Đã xuất hoá đơn gửi tới ${einvoiceEmail}` : "Đã tải chứng từ thanh toán")}>{wantEinvoice ? "⇩ Tải hóa đơn VAT (.pdf)" : "⇩ Tải chứng từ thanh toán"}</button>
+          : <button className="primary-button payment-button" onClick={() => setPaymentState("scanning")}>Thanh toán ₫368,141,400</button>}
         <button className="invoice-secondary" onClick={() => showNotice("Đã mở lịch sử thanh toán")}>Xem lịch sử thanh toán</button>
       </aside>
     </section>
@@ -457,11 +773,55 @@ function UsageTotal({ showNotice }: { showNotice: (message: string) => void }) {
         <div className="payment-content">
           <div className="payment-qr"><div className="qr-noise"><i /><i /><i /></div><small>VIETQR</small></div>
           <div className="payment-info">
-            <span>SỐ TIỀN THANH TOÁN</span><strong>₫50,284,300</strong>
+            <span>SỐ TIỀN THANH TOÁN</span><strong>₫368,141,400</strong>
             <dl><div><dt>Ngân hàng</dt><dd>MB Bank</dd></div><div><dt>Người nhận</dt><dd>CAS VIETNAM JSC</dd></div><div><dt>Nội dung</dt><dd>CAS APP8F2 JUL2026</dd></div><div><dt>Hết hạn</dt><dd>14:59</dd></div></dl>
-            <p>Mở ứng dụng ngân hàng, quét mã và giữ nguyên nội dung chuyển khoản.</p>
-            <button className="primary-button" onClick={() => { setPaymentState("paid"); showNotice("Thanh toán thành công"); }}>Mô phỏng thanh toán thành công</button>
+            {wantEinvoice && <div className="payment-einvoice-strip">
+              <div>
+                <span>📝 HÓA ĐƠN ĐIỆN TỬ:</span>
+                <strong>{einvoiceCompany}</strong> (MST: {einvoiceTaxId}) · <em>{einvoiceEmail}</em>
+              </div>
+              <button type="button" onClick={() => setShowInvoiceModal(true)}>Sửa</button>
+            </div>}
+            <p style={{ marginTop: "12px" }}>Mở ứng dụng ngân hàng, quét mã và giữ nguyên nội dung chuyển khoản.</p>
+            <button className="primary-button" onClick={() => { setPaymentState("paid"); showNotice(wantEinvoice ? `Thanh toán thành công! Hóa đơn đã gửi tới ${einvoiceEmail}` : "Thanh toán thành công!"); }}>Mô phỏng thanh toán thành công</button>
             <button onClick={() => setPaymentState("unpaid")}>Huỷ thanh toán</button>
+          </div>
+        </div>
+      </div>
+    </div>}
+
+    {showInvoiceModal && <div className="payment-screen" role="dialog" aria-modal="true" aria-labelledby="invoice-modal-title">
+      <div className="invoice-modal-dialog">
+        <div className="payment-heading">
+          <div><span>THÔNG TIN THUẾ & HÓA ĐƠN</span><h2 id="invoice-modal-title">Cấu hình hóa đơn điện tử VAT</h2></div>
+          <button aria-label="Đóng" onClick={() => setShowInvoiceModal(false)}>×</button>
+        </div>
+        <div className="invoice-modal-body">
+          <div className="einvoice-field">
+            <label>Tên đơn vị mua hàng / Công ty <b className="req">*</b></label>
+            <input type="text" value={einvoiceCompany} onChange={e => setEinvoiceCompany(e.target.value)} placeholder="VD: Công ty CP VietFin Digital" />
+          </div>
+          <div className="einvoice-field-row">
+            <div className="einvoice-field">
+              <label>Mã số thuế (MST) <b className="req">*</b></label>
+              <input type="text" value={einvoiceTaxId} onChange={e => setEinvoiceTaxId(e.target.value)} placeholder="VD: 0317849201" />
+            </div>
+            <div className="einvoice-field">
+              <label>Email nhận HĐĐT <b className="req">*</b></label>
+              <input type="email" value={einvoiceEmail} onChange={e => setEinvoiceEmail(e.target.value)} placeholder="VD: ketoan@vietfin.vn" />
+            </div>
+          </div>
+          <div className="einvoice-field">
+            <label>Địa chỉ công ty (theo đăng ký kinh doanh)</label>
+            <input type="text" value={einvoiceAddress} onChange={e => setEinvoiceAddress(e.target.value)} placeholder="Nhập địa chỉ nhận hóa đơn" />
+          </div>
+          <div className="einvoice-field">
+            <label>Ghi chú trên hóa đơn (tùy chọn)</label>
+            <input type="text" value={einvoiceNote} onChange={e => setEinvoiceNote(e.target.value)} placeholder="VD: Mã hợp đồng, bộ phận nhận..." />
+          </div>
+          <div className="invoice-modal-actions">
+            <button type="button" className="invoice-cancel-btn" onClick={() => setShowInvoiceModal(false)}>Hủy</button>
+            <button type="button" className="primary-button" onClick={() => { setShowInvoiceModal(false); showNotice("Đã lưu thông tin xuất hóa đơn VAT"); }}>Lưu thông tin hóa đơn</button>
           </div>
         </div>
       </div>
@@ -514,7 +874,13 @@ function UsageRecordsTable({ tab, search, onSearch, timeFilter, onTimeFilter, pa
       <div className="excel-title"><h3>{data.title}</h3><p>{timeFilter} · {filtered.length} bản ghi</p></div>
       <div className="excel-actions">
         <label className="compact-search table-search"><span>⌕</span><input value={search} onChange={e => { onSearch(e.target.value); setPage(1); }} placeholder={`Tìm trong danh sách ${usageTabLabel(tab)}…`} /></label>
-        <select className="table-month-filter" value={timeFilter} onChange={e => { onTimeFilter(e.target.value); setPage(1); }} aria-label="Tháng dữ liệu"><option>Tháng 07/2026</option><option>Tháng 06/2026</option><option>Tháng 05/2026</option></select>
+        <select className="table-month-filter" value={timeFilter} onChange={e => { onTimeFilter(e.target.value); setPage(1); }} aria-label="Thời gian dữ liệu">
+          <option value="24 giờ qua">24 giờ qua</option>
+          <option value="7 ngày qua">7 ngày qua</option>
+          <option value="Tháng 07/2026">Tháng 07/2026</option>
+          <option value="Tháng 06/2026">Tháng 06/2026</option>
+          <option value="Tháng 05/2026">Tháng 05/2026</option>
+        </select>
         <button className="excel-export" onClick={exportRows}>▦ Xuất Excel</button>
       </div>
     </div>
@@ -526,11 +892,13 @@ function UsageRecordsTable({ tab, search, onSearch, timeFilter, onTimeFilter, pa
           {row.map((cell, cellIndex) => <td key={cellIndex} title={cell}>
             {statusValues.includes(cell)
               ? <span className={`usage-status ${cell.toLowerCase()}`}><i />{cell}</span>
-              : data.columns[cellIndex] === "Ngân hàng"
+              : data.columns[cellIndex].includes("Ngân hàng")
                 ? <span className="bank-name"><i className={`bank-mark bank-${cell.toLowerCase().replaceAll(" ", "-")}`}>{bankMarks[cell] ?? cell.slice(0, 2).toUpperCase()}</i>{cell}</span>
-                : data.columns[cellIndex].includes("ID")
-                  ? <strong>{cell}</strong>
-                  : cell}
+                : data.columns[cellIndex] === "Số tiền" || data.columns[cellIndex] === "Giá trị"
+                  ? <span className={cell.startsWith("-") ? "amount-negative" : cell.startsWith("+") ? "amount-positive" : "amount-val"}>{cell}</span>
+                  : data.columns[cellIndex].toLowerCase().includes("id")
+                    ? <strong>{cell}</strong>
+                    : cell}
           </td>)}
         </tr>)}</tbody>
       </table>
