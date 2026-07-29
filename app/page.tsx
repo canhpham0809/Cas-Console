@@ -842,6 +842,9 @@ function UsageRecordsTable({ tab, search, onSearch, timeFilter, onTimeFilter, pa
   showNotice: (message: string) => void;
 }) {
   const data = usageTableData[tab];
+  const [selectedStatus, setSelectedStatus] = useState("Tất cả trạng thái");
+  const [selectedBank, setSelectedBank] = useState("Tất cả ngân hàng");
+
   function autoWidthFor(index: number) {
     const values = [data.columns[index], ...data.rows.map(row => row[index] ?? "")];
     const longest = Math.max(...values.map(value => String(value).length));
@@ -851,12 +854,56 @@ function UsageRecordsTable({ tab, search, onSearch, timeFilter, onTimeFilter, pa
   }
   const [columnWidths, setColumnWidths] = useState(() => data.columns.map((_, index) => autoWidthFor(index)));
   const [resizingColumn, setResizingColumn] = useState<number | null>(null);
-  const filtered = data.rows.filter(row => row.join(" ").toLowerCase().includes(search.toLowerCase()));
+
+  const statusValues = ["New", "Accepted", "Active", "Inactive", "Paused", "Deleted", "Success", "Failed", "Processing", "Paid", "Pending", "Expired", "Cancelled", "Verified", "Rejected", "Issued", "Delivered", "Retrying", "Chưa phát sinh"];
+  const bankMarks: Record<string, string> = { Techcombank: "TCB", Vietcombank: "VCB", "MB Bank": "MB", ACB: "ACB", BIDV: "BIDV", Sacombank: "STB", VietinBank: "VTB", VPBank: "VPB", TPBank: "TPB" };
+
+  const availableStatuses = useMemo(() => {
+    const set = new Set<string>();
+    data.rows.forEach(row => row.forEach(cell => {
+      if (statusValues.includes(cell)) set.add(cell);
+    }));
+    return Array.from(set);
+  }, [data.rows]);
+
+  const availableBanks = useMemo(() => {
+    const set = new Set<string>();
+    data.rows.forEach(row => row.forEach(cell => {
+      if (bankMarks[cell]) set.add(cell);
+    }));
+    return Array.from(set);
+  }, [data.rows]);
+
+  const filtered = useMemo(() => {
+    return data.rows.filter(row => {
+      const rowString = row.join(" ").toLowerCase();
+      if (search && !rowString.includes(search.toLowerCase())) return false;
+      if (selectedStatus !== "Tất cả trạng thái" && !row.includes(selectedStatus)) return false;
+      if (selectedBank !== "Tất cả ngân hàng" && !row.includes(selectedBank)) return false;
+
+      const dateCell = row[row.length - 1] || "";
+      if (timeFilter === "24 giờ qua") {
+        return dateCell.includes("24/07/2026") || dateCell.includes("24/07");
+      }
+      if (timeFilter === "7 ngày qua") {
+        return !dateCell.includes("/06/") && !dateCell.includes("/05/") && !dateCell.includes("17/07/");
+      }
+      if (timeFilter === "Tháng 07/2026") {
+        return dateCell.includes("07/2026") || dateCell.includes("/07") || (!dateCell.includes("/06") && !dateCell.includes("/05"));
+      }
+      if (timeFilter === "Tháng 06/2026") {
+        return dateCell.includes("06/2026") || dateCell.includes("/06");
+      }
+      if (timeFilter === "Tháng 05/2026") {
+        return dateCell.includes("05/2026") || dateCell.includes("/05");
+      }
+      return true;
+    });
+  }, [data.rows, search, selectedStatus, selectedBank, timeFilter]);
+
   const pageCount = Math.max(1, Math.ceil(filtered.length / pageSize));
   const currentPage = Math.min(page, pageCount);
   const visible = filtered.slice((currentPage - 1) * pageSize, currentPage * pageSize);
-  const statusValues = ["New", "Accepted", "Active", "Inactive", "Paused", "Deleted", "Success", "Failed", "Processing", "Paid", "Pending", "Expired", "Cancelled", "Verified", "Rejected", "Issued", "Delivered", "Retrying", "Chưa phát sinh"];
-  const bankMarks: Record<string, string> = { Techcombank: "TCB", Vietcombank: "VCB", "MB Bank": "MB", ACB: "ACB", BIDV: "BIDV", Sacombank: "STB" };
 
   function exportRows() {
     const csv = [data.columns, ...filtered].map(columns => columns.map(value => `"${String(value).replaceAll("\"", "\"\"")}"`).join(",")).join("\n");
@@ -874,6 +921,18 @@ function UsageRecordsTable({ tab, search, onSearch, timeFilter, onTimeFilter, pa
       <div className="excel-title"><h3>{data.title}</h3><p>{timeFilter} · {filtered.length} bản ghi</p></div>
       <div className="excel-actions">
         <label className="compact-search table-search"><span>⌕</span><input value={search} onChange={e => { onSearch(e.target.value); setPage(1); }} placeholder={`Tìm trong danh sách ${usageTabLabel(tab)}…`} /></label>
+        {availableStatuses.length > 0 && (
+          <select className="table-month-filter" value={selectedStatus} onChange={e => { setSelectedStatus(e.target.value); setPage(1); }} aria-label="Lọc trạng thái">
+            <option value="Tất cả trạng thái">Tất cả trạng thái</option>
+            {availableStatuses.map(st => <option key={st} value={st}>{st}</option>)}
+          </select>
+        )}
+        {availableBanks.length > 0 && (
+          <select className="table-month-filter" value={selectedBank} onChange={e => { setSelectedBank(e.target.value); setPage(1); }} aria-label="Lọc ngân hàng">
+            <option value="Tất cả ngân hàng">Tất cả ngân hàng</option>
+            {availableBanks.map(b => <option key={b} value={b}>{b}</option>)}
+          </select>
+        )}
         <select className="table-month-filter" value={timeFilter} onChange={e => { onTimeFilter(e.target.value); setPage(1); }} aria-label="Thời gian dữ liệu">
           <option value="24 giờ qua">24 giờ qua</option>
           <option value="7 ngày qua">7 ngày qua</option>
