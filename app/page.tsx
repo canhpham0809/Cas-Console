@@ -3,7 +3,7 @@
 import { useMemo, useState, type CSSProperties } from "react";
 
 type AppData = { id: string; name: string; short: string; color: string; environment: string };
-type AnalyticsTab = "Connection" | "Transaction" | "Identity" | "Balance" | "QRPay" | "VirtualAccount" | "Transfer" | "eKYC" | "Invoice";
+type AnalyticsTab = "Connection" | "Transaction" | "Identity" | "Balance" | "QRPay" | "VirtualAccount" | "Transfer" | "eKYC" | "Invoice" | "BalanceHook";
 type DetailRow = { requestId: string; grant: string; user: string; bank: string; scopes: string; calls: string; status: string; last: string; cost: string; endpoint: string; http: string; latency: string; webhook?: string };
 type LogRecord = {
   requestId: string;
@@ -39,7 +39,7 @@ const baseRows: DetailRow[] = [
   { requestId: "req_6P3RF82W", grant: "grt_6P3RF82K", user: "Đỗ Tuấn Nam", bank: "ACB", scopes: "VirtualAccount · Invoice", calls: "7,906", status: "Deleted", last: "Hôm qua", cost: "₫395,300", endpoint: "/v2/virtual-accounts", http: "429", latency: "602 ms" },
 ];
 
-const scopeConfig: Record<Exclude<AnalyticsTab, "Connection">, { grants: string; costGrants: string; active: string; calls: string; cost: string; endpoints: string[]; price: number; webhook?: boolean }> = {
+const scopeConfig: Record<Exclude<AnalyticsTab, "Connection" | "BalanceHook">, { grants: string; costGrants: string; active: string; calls: string; cost: string; endpoints: string[]; price: number; webhook?: boolean }> = {
   Transaction: { grants: "2.416", costGrants: "750.000 VNĐ", active: "2.382", calls: "426.800", cost: "21.340.000", endpoints: ["/v2/transactions", "/v2/transactions/sync", "/v2/transactions/{id}"], price: 50 },
   Identity: { grants: "1.842", costGrants: "750.000 VNĐ", active: "1.806", calls: "204.100", cost: "12.250.000", endpoints: ["/v2/identity", "/v2/identity/profile", "/v2/accounts/owner"], price: 60 },
   Balance: { grants: "2.204", costGrants: "750.000 VNĐ", active: "2.171", calls: "281.400", cost: "9.850.000", endpoints: ["/v2/balance", "/v2/accounts", "/v2/accounts/{id}/balance"], price: 35 },
@@ -50,7 +50,7 @@ const scopeConfig: Record<Exclude<AnalyticsTab, "Connection">, { grants: string;
   Invoice: { grants: "624", costGrants: "750.000 VNĐ", active: "603", calls: "72.600", cost: "3.630.000", endpoints: ["/v2/invoices", "/v2/invoices/{id}", "/v2/invoices/search"], price: 50 },
 };
 
-function buildScopeRows(scope: Exclude<AnalyticsTab, "Connection">): DetailRow[] {
+function buildScopeRows(scope: Exclude<AnalyticsTab, "Connection" | "BalanceHook">): DetailRow[] {
   const config = scopeConfig[scope];
   return Array.from({ length: 18 }, (_, index) => {
     const row = baseRows[index % baseRows.length];
@@ -89,7 +89,18 @@ const analyticsData: Record<AnalyticsTab, {
     ],
     rows: baseRows,
   },
-  ...Object.fromEntries((Object.keys(scopeConfig) as Exclude<AnalyticsTab, "Connection">[]).map(scope => {
+  BalanceHook: {
+    subtitle: "Lịch sử thông báo biến động số dư qua webhook",
+    metrics: [
+      { label: "Tổng thông báo", value: "981.240", change: "+12.4%" },
+      { label: "Gửi thành công", value: "978.100", change: "+12.1%" },
+      { label: "Thất bại / Retrying", value: "3.140", tone: "warning", change: "-2.3%" },
+      { label: "Tổng tiền vào/ra", value: "48.250.000.000 VNĐ", change: "+15.8%" },
+    ],
+    rows: baseRows,
+    hasWebhook: true,
+  },
+  ...Object.fromEntries((Object.keys(scopeConfig) as Exclude<AnalyticsTab, "Connection" | "BalanceHook">[]).map(scope => {
     const config = scopeConfig[scope];
     return [scope, {
       subtitle: `${config.grants} Grant ID đang có quyền gọi API thuộc scope ${scope}`,
@@ -110,7 +121,7 @@ const analyticsData: Record<AnalyticsTab, {
       rows: buildScopeRows(scope),
       hasWebhook: config.webhook,
     }];
-  })) as Record<Exclude<AnalyticsTab, "Connection">, {
+  })) as Record<Exclude<AnalyticsTab, "Connection" | "BalanceHook">, {
     subtitle: string;
     metrics: { label: string; value: string; change?: string; tone?: string }[];
     rows: DetailRow[];
@@ -124,7 +135,7 @@ const screenData: Record<string, { description: string; action: string; columns:
   Webhooks: { description: "Endpoint nhận sự kiện Grant, Transaction, QRPay và VirtualAccount.", action: "＋ Thêm webhook", columns: [], rows: [] },
   Logs: { description: "Lịch sử request API và webhook của App.", action: "⇩ Export logs", columns: ["Request ID", "Endpoint / Event", "Scope", "Grant ID", "HTTP"], rows: [["req_7KQ2M91P", "/v2/transactions", "Transaction", "grt_8L2KP91N", "200"], ["req_4PX9D20A", "/v2/balance", "Balance", "grt_4T7MD20Q", "200"], ["wh_1MV3C84F", "payment.succeeded", "QRPay webhook", "grt_1A9HC63V", "200"], ["wh_8AB5R72W", "va.credited", "VirtualAccount webhook", "grt_6P3RF82K", "429"]] },
   Connections: { description: "Tổng hợp Grant ID, ngân hàng và các scope đã được cấp.", action: "＋ Tạo connection", columns: ["Grant ID", "End-user", "Ngân hàng", "Scopes được cấp", "Trạng thái"], rows: baseRows.map(r => [r.grant, r.user, r.bank, r.scopes, r.status]) },
-  Usage: { description: "Theo dõi Grant, API usage và chi phí theo từng nghiệp vụ.", action: "⇩ Tải hoá đơn", columns: ["Scope", "Grant có quyền", "API calls", "Chi phí", "Trạng thái"], rows: (Object.keys(scopeConfig) as Exclude<AnalyticsTab, "Connection">[]).map(scope => [scope, scopeConfig[scope].grants, scopeConfig[scope].calls, scopeConfig[scope].cost, "Active"]) },
+  Usage: { description: "Theo dõi Grant, API usage và chi phí theo từng nghiệp vụ.", action: "⇩ Tải hoá đơn", columns: ["Scope", "Grant có quyền", "API calls", "Chi phí", "Trạng thái"], rows: (Object.keys(scopeConfig) as Exclude<AnalyticsTab, "Connection" | "BalanceHook">[]).map(scope => [scope, scopeConfig[scope].grants, scopeConfig[scope].calls, scopeConfig[scope].cost, "Active"]) },
   "Grant debugger": { description: "Kiểm tra trạng thái và quyền của một Grant.", action: "Chạy kiểm tra", columns: ["Grant ID gần đây", "Ngân hàng", "Scopes", "Hết hạn", "Trạng thái"], rows: [["grt_8L2KP91N", "Techcombank", "identity, balance, transaction", "24/10/2026", "Healthy"], ["grt_4T7MD20Q", "Vietcombank", "balance, transaction", "02/11/2026", "Healthy"], ["grt_1A9HC63V", "MB Bank", "identity, qrpay", "28/07/2026", "Expiring"]] },
   "Cài đặt App": { description: "Thông tin và callback URL của App.", action: "Lưu thay đổi", columns: ["Cấu hình", "Giá trị", "Môi trường", "Cập nhật", "Trạng thái"], rows: [["App ID", "app_8F2KD91M", "—", "Không đổi", "Active"], ["Redirect URI", "bankhub.vn/cas/callback", "Production", "19/07/2026", "Verified"], ["Allowed origin", "https://bankhub.vn", "Production", "19/07/2026", "Verified"]] },
   "Thành viên": { description: "Quản lý quyền truy cập App.", action: "＋ Mời thành viên", columns: ["Thành viên", "Email", "Vai trò", "Truy cập gần nhất", "Trạng thái"], rows: [["Minh Nguyễn", "minh@vietfin.vn", "Owner", "Vừa xong", "Active"], ["Linh Phạm", "linh@vietfin.vn", "Developer", "2 giờ trước", "Active"], ["Huy Trần", "huy@vietfin.vn", "Analyst", "Hôm qua", "Active"]] },
@@ -190,24 +201,66 @@ const usageTableData: Record<AnalyticsTab, { title: string; columns: string[]; r
     ],
   },
   QRPay: {
-    title: "Danh sách giao dịch",
-    columns: ["STT", "QR ID", "Grant ID", "Reference", "Transaction", "Ngân hàng", "STK", "Tên người nhận", "Số tiền", "Nội dung", "Thông báo", "Thời gian"],
+    title: "Danh sách giao dịch QR Pay",
+    columns: ["STT", "Mã QR", "Grant ID", "Mã tham chiếu", "Mã giao dịch", "Ngân hàng", "Số tài khoản", "Tên người nhận", "Số tiền", "Nội dung", "Thông báo", "Trạng thái", "Thời gian"],
     rows: [
-      ["1", "qr_M20P81", "grt_8L2KP91N", "FT260724163218", "BH10428", "Techcombank", "1903 •••• 4812", "Nguyễn Minh Anh", "₫125,000", "Order BH-10428", "Delivered", "24/07/2026 16:32:18"],
-      ["2", "qr_Q47D20", "grt_4T7MD20Q", "FT260724160542", "INV20261842", "Vietcombank", "1028 •••• 1098", "Công ty CP Minh Long", "₫2,480,000", "INV-2026-1842", "Delivered", "24/07/2026 16:05:42"],
-      ["3", "qr_A19C63", "grt_9Q4LC73A", "FT260724154209", "POSNR02814", "Sacombank", "0602 •••• 2180", "Công ty CP Nova Retail", "₫845,000", "POS-NR-02814", "Delivered", "24/07/2026 15:42:09"],
-      ["4", "qr_W63F82", "grt_6P3RF82K", "FT260724145633", "HD0726091", "ACB", "2167 •••• 3306", "Công ty TNHH Nam Việt", "₫6,200,000", "HD-0726-091", "Failed", "24/07/2026 14:56:33"],
-      ["5", "qr_D28P14", "grt_2K8NP14D", "FT260724132851", "ORDER8421", "BIDV", "2111 •••• 9024", "Trần Hoàng Long", "₫320,000", "Thanh toán đơn 8421", "Delivered", "24/07/2026 13:28:51"],
+      ["1", "qr_M20P81", "grt_8L2KP91N", "FT260724163218", "TXN260724163218", "Techcombank", "1903 •••• 4812", "Nguyễn Minh Anh", "₫125,000", "Order BH-10428", "Delivered", "Success", "24/07/2026 16:32:18"],
+      ["2", "qr_Q47D20", "grt_4T7MD20Q", "FT260724160542", "TXN260724160542", "Vietcombank", "1028 •••• 1098", "Công ty CP Minh Long", "₫2,480,000", "INV-2026-1842", "Delivered", "Success", "24/07/2026 16:05:42"],
+      ["3", "qr_A19C63", "grt_9Q4LC73A", "FT260724154209", "TXN260724154209", "Sacombank", "0602 •••• 2180", "Công ty CP Nova Retail", "₫845,000", "POS-NR-02814", "Delivered", "Success", "24/07/2026 15:42:09"],
+      ["4", "qr_W63F82", "grt_6P3RF82K", "FT260724145633", "TXN260724145633", "ACB", "2167 •••• 3306", "Công ty TNHH Nam Việt", "₫6,200,000", "HD-0726-091", "Failed", "Failed", "24/07/2026 14:56:33"],
+      ["5", "qr_D28P14", "grt_2K8NP14D", "FT260724132851", "TXN260724132851", "BIDV", "2111 •••• 9024", "Trần Hoàng Long", "₫320,000", "Thanh toán đơn 8421", "Delivered", "Success", "24/07/2026 13:28:51"],
+      ["6", "qr_K82V90", "grt_5M3KP82N", "FT260724121540", "TXN260724121540", "VietinBank", "1018 •••• 5541", "Nguyễn Văn Đức", "₫1,500,000", "Order BH-10429", "Delivered", "Success", "24/07/2026 12:15:40"],
+      ["7", "qr_P19L44", "grt_7B9RT14H", "FT260724110822", "TXN260724110822", "Techcombank", "1902 •••• 8812", "Hoàng Ngọc Sơn", "₫4,800,000", "INV-2026-1901", "Delivered", "Success", "24/07/2026 11:08:22"],
+      ["8", "qr_X54M12", "grt_3C8VL90P", "FT260724103015", "TXN260724103015", "VPBank", "1542 •••• 9901", "Trịnh Bảo Ngọc", "₫750,000", "POS-NR-02815", "Delivered", "Success", "24/07/2026 10:30:15"],
+      ["9", "qr_T88K99", "grt_9X2NY55T", "FT260724094508", "TXN260724094508", "Vietcombank", "1019 •••• 3342", "Phan Thanh Tùng", "₫980,000", "Thanh toán đơn 8422", "Retrying", "Processing", "24/07/2026 09:45:08"],
+      ["10", "qr_Z12N45", "grt_1L8QP42K", "FT260724085033", "TXN260724085033", "TPBank", "0219 •••• 4410", "Vũ Thu Trang", "₫3,400,000", "HD-0726-092", "Delivered", "Success", "24/07/2026 08:50:33"],
+      ["11", "qr_R90P66", "grt_6K4FD19M", "FT260723182010", "TXN260723182010", "BIDV", "2151 •••• 6678", "Đặng Quốc Huy", "₫12,000,000", "Order BH-10430", "Delivered", "Success", "23/07/2026 18:20:10"],
+      ["12", "qr_B44L21", "grt_8P9WX33L", "FT260723171245", "TXN260723171245", "Techcombank", "1903 •••• 1129", "Bùi Mỹ Linh", "₫540,000", "INV-2026-1902", "Delivered", "Success", "23/07/2026 17:12:45"],
+      ["13", "qr_C77V88", "grt_2M7VT88D", "FT260723160530", "TXN260723160530", "MB Bank", "0682 •••• 9988", "Nguyễn Thái Dương", "₫2,150,000", "POS-NR-02816", "Delivered", "Success", "23/07/2026 16:05:30"],
+      ["14", "qr_H11K33", "grt_4H9BN11Q", "FT260723145012", "TXN260723145012", "Sacombank", "0603 •••• 7712", "Lý Kim Ngân", "₫8,900,000", "Thanh toán đơn 8423", "Failed", "Failed", "23/07/2026 14:50:12"],
+      ["15", "qr_Y99M54", "grt_8L2KP91N", "FT260723131804", "TXN260723131804", "Techcombank", "1903 •••• 4812", "Nguyễn Minh Anh", "₫670,000", "HD-0726-093", "Delivered", "Success", "23/07/2026 13:18:04"],
     ],
   },
   VirtualAccount: {
-    title: "Danh sách tài khoản định danh",
-    columns: ["VA ID", "Grant ID", "Số tài khoản VA", "Ngân hàng", "Chủ tài khoản", "Số dư", "Webhook gần nhất", "Trạng thái"],
+    title: "Danh sách tài khoản định danh (Virtual Account)",
+    columns: ["STT", "Mã VA", "Grant ID", "Ngân hàng", "Số tài khoản gốc", "Tên tài khoản", "Số tài khoản VA", "Tên VA", "Trạng thái", "Thời gian tạo"],
     rows: [
-      ["va_82JF91", "grt_6P3RF82K", "9868120001842", "ACB", "CTY TNHH NAM VIET", "₫18,420,000", "Delivered · 2 phút", "Active"],
-      ["va_47MD20", "grt_9Q4LC73A", "9704360028471", "Vietcombank", "NOVA RETAIL JSC", "₫6,850,000", "Delivered · 8 phút", "Active"],
-      ["va_19HC63", "grt_4T7MD20Q", "1903690015820", "Techcombank", "MINH LONG JSC", "₫42,100,000", "Retrying · 11 phút", "Paused"],
-      ["va_63RF82", "grt_8L2KP91N", "1289100042763", "BIDV", "NGUYEN MINH ANH", "₫0", "—", "Inactive"],
+      ["1", "va_82JF91", "grt_6P3RF82K", "ACB", "2167 •••• 3306", "CTY TNHH NAM VIET", "9868120001842", "VA Thanh toan Nam Viet", "Active", "23/07/2026 17:03"],
+      ["2", "va_48RT12", "grt_9Q4LC73A", "Vietcombank", "1028 •••• 1098", "CTY CP NOVA RETAIL", "9704360028471", "VA Nova Store HCM", "Active", "22/07/2026 09:34"],
+      ["3", "va_91MK05", "grt_4T7MD20Q", "Techcombank", "1903 •••• 4812", "CTY CP MINH LONG", "1903690015820", "VA Thu ho Minh Long", "Paused", "20/07/2026 14:15"],
+      ["4", "va_18PL44", "grt_8L2KP91N", "BIDV", "2111 •••• 9024", "NGUYEN MINH ANH", "1289100042763", "VA Minh Anh Personal", "Inactive", "18/07/2026 11:20"],
+      ["5", "va_73LN99", "grt_1A9HC63V", "MB Bank", "0681 •••• 6721", "PHAM THUY LINH", "9901820038194", "VA Linh Pham Store", "Active", "15/07/2026 08:45"],
+      ["6", "va_25TR88", "grt_2K8NP14D", "Sacombank", "0602 •••• 2180", "TRAN HOANG LONG", "9602410082736", "VA Long Tran Online", "Active", "12/07/2026 16:30"],
+      ["7", "va_55VD10", "grt_5M3KP82N", "VietinBank", "1018 •••• 5541", "NGUYEN VAN DUC", "9688100055410", "VA Van Duc Trading", "Active", "10/07/2026 14:10"],
+      ["8", "va_88TS25", "grt_7B9RT14H", "Techcombank", "1902 •••• 8812", "CTY CP TRUONG SON", "1903880088120", "VA Thu ho Truong Son", "Active", "08/07/2026 09:25"],
+      ["9", "va_34NT40", "grt_3C8VL90P", "VPBank", "1542 •••• 9901", "TRINH BAO NGOC", "9842150099015", "VA Ngoc Trinh Shop", "Paused", "05/07/2026 16:40"],
+      ["10", "va_19SG15", "grt_9X2NY55T", "Vietcombank", "1019 •••• 3342", "CTY TNHH SAI GON TECH", "9704190033421", "VA Saigon Tech Main", "Active", "03/07/2026 11:15"],
+      ["11", "va_11TT50", "grt_1L8QP42K", "TPBank", "0219 •••• 4410", "VU THU TRANG", "9219000044102", "VA Thu Trang Fashion", "Active", "01/07/2026 15:50"],
+      ["12", "va_66HG05", "grt_6K4FD19M", "BIDV", "2151 •••• 6678", "CTY CP HOANG GIA", "1289210066789", "VA Hoang Gia B2B", "Active", "28/06/2026 10:05"],
+      ["13", "va_88ML35", "grt_8P9WX33L", "Techcombank", "1903 •••• 1129", "BUI MY LINH", "1903110011299", "VA My Linh Studio", "Active", "25/06/2026 17:35"],
+      ["14", "va_22AC50", "grt_2M7VT88D", "MB Bank", "0682 •••• 9988", "CTY TNHH A CHAU", "9901060099884", "VA A Chau Logistics", "Active", "22/06/2026 08:50"],
+      ["15", "va_44KN15", "grt_4H9BN11Q", "Sacombank", "0603 •••• 7712", "LY KIM NGAN", "9602060077123", "VA Kim Ngan Jewelry", "Active", "20/06/2026 13:15"],
+    ],
+  },
+  BalanceHook: {
+    title: "Lịch sử thông báo biến động số dư (Balance Hook)",
+    columns: ["STT", "Mã GD", "Grant ID", "Mã tham chiếu", "Mã giao dịch", "Ngân hàng", "Số tài khoản", "Tên tài khoản", "Số tiền", "Nội dung", "Thông báo", "Trạng thái", "Thời gian"],
+    rows: [
+      ["1", "txn_981240", "grt_8L2KP91N", "FT260724164210", "TXN260724164210", "Techcombank", "1903 •••• 4812", "Nguyễn Minh Anh", "+₫482,500", "Tiền vào: Nhan thanh toan BH20481", "Delivered", "Success", "24/07/2026 16:42:10"],
+      ["2", "txn_981239", "grt_4T7MD20Q", "FT260724161825", "TXN260724161825", "Vietcombank", "1028 •••• 1098", "Công ty CP Minh Long", "-₫12,650,000", "Tiền ra: Thanh toan phi dich vu VCB", "Delivered", "Success", "24/07/2026 16:18:25"],
+      ["3", "txn_981238", "grt_1A9HC63V", "FT260724153108", "TXN260724153108", "MB Bank", "0681 •••• 6721", "Phạm Thùy Linh", "+₫3,200,000", "Tiền vào: Cong tien QR thanh toan", "Failed", "Failed", "24/07/2026 15:31:08"],
+      ["4", "txn_981237", "grt_6P3RF82K", "FT260724145742", "TXN260724145742", "ACB", "2167 •••• 3306", "Công ty TNHH Nam Việt", "-₫8,400,000", "Tiền ra: Rut tien ve tai khoan chinh", "Delivered", "Success", "24/07/2026 14:57:42"],
+      ["5", "txn_981236", "grt_2K8NP14D", "FT260724134519", "TXN260724134519", "BIDV", "2111 •••• 9024", "Trần Hoàng Long", "+₫1,500,000", "Tiền vào: Chuyen khoan tu BIDV", "Delivered", "Success", "24/07/2026 13:45:19"],
+      ["6", "txn_981235", "grt_9Q4LC73A", "FT260724132804", "TXN260724132804", "Sacombank", "0602 •••• 2180", "Công ty CP Nova Retail", "-₫15,800,000", "Tiền ra: Chi tra tien hang STB 0602", "Retrying", "Processing", "24/07/2026 13:28:04"],
+      ["7", "txn_981234", "grt_5M3KP82N", "FT260724121005", "TXN260724121005", "VietinBank", "1018 •••• 5541", "Nguyễn Văn Đức", "+₫4,250,000", "Tiền vào: Nhan tien thanh toan BH20482", "Delivered", "Success", "24/07/2026 12:10:05"],
+      ["8", "txn_981233", "grt_7B9RT14H", "FT260724110540", "TXN260724110540", "Techcombank", "1902 •••• 8812", "Hoàng Ngọc Sơn", "-₫2,100,000", "Tiền ra: Chuyen tien NCC Truong Son", "Delivered", "Success", "24/07/2026 11:05:40"],
+      ["9", "txn_981232", "grt_3C8VL90P", "FT260724102018", "TXN260724102018", "VPBank", "1542 •••• 9901", "Trịnh Bảo Ngọc", "+₫890,000", "Tiền vào: Thu ho tin dung VPBank", "Delivered", "Success", "24/07/2026 10:20:18"],
+      ["10", "txn_981231", "grt_9X2NY55T", "FT260724093550", "TXN260724093550", "Vietcombank", "1019 •••• 3342", "Phan Thanh Tùng", "-₫6,400,000", "Tiền ra: Thanh toan HD-0726-106", "Delivered", "Success", "24/07/2026 09:35:50"],
+      ["11", "txn_981230", "grt_1L8QP42K", "FT260724084215", "TXN260724084215", "TPBank", "0219 •••• 4410", "Vũ Thu Trang", "+₫18,200,000", "Tiền vào: Nhan chuyen khoan lon TPB", "Delivered", "Success", "24/07/2026 08:42:15"],
+      ["12", "txn_981229", "grt_6K4FD19M", "FT260723185030", "TXN260723185030", "BIDV", "2151 •••• 6678", "Đặng Quốc Huy", "-₫1,150,000", "Tiền ra: Phi duy tri tai khoan BIDV", "Delivered", "Success", "23/07/2026 18:50:30"],
+      ["13", "txn_981228", "grt_8P9WX33L", "FT260723172210", "TXN260723172210", "Techcombank", "1903 •••• 1129", "Bùi Mỹ Linh", "+₫7,500,000", "Tiền vào: Nhan tien dat coc studio", "Delivered", "Success", "23/07/2026 17:22:10"],
+      ["14", "txn_981227", "grt_2M7VT88D", "FT260723161045", "TXN260723161045", "MB Bank", "0682 •••• 9988", "Nguyễn Thái Dương", "-₫3,800,000", "Tiền ra: Chuyen tien thanh toan HD107", "Failed", "Failed", "23/07/2026 16:10:45"],
+      ["15", "txn_981226", "grt_4H9BN11Q", "FT260723145520", "TXN260723145520", "Sacombank", "0603 •••• 7712", "Lý Kim Ngân", "+₫12,400,000", "Tiền vào: Nhan tien thanh toan don 9015", "Delivered", "Success", "23/07/2026 14:55:20"],
     ],
   },
   Transfer: {
