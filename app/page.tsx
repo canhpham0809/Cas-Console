@@ -3,7 +3,7 @@
 import { useMemo, useState, type CSSProperties } from "react";
 
 type AppData = { id: string; name: string; short: string; color: string; environment: string };
-type AnalyticsTab = "Connection" | "Transaction" | "Identity" | "Balance" | "QRPay" | "VirtualAccount" | "BalanceHook" | "Transfer" | "eKYC" | "Invoice";
+type AnalyticsTab = "Connection" | "Transaction" | "Identity" | "Balance" | "QRPay" | "VirtualAccount" | "BalanceHook" | "Transfer" | "eKYC" | "Invoice" | "Deeplink";
 type DetailRow = { requestId: string; grant: string; user: string; bank: string; scopes: string; calls: string; status: string; last: string; cost: string; endpoint: string; http: string; latency: string; webhook?: string };
 type LogRecord = {
   requestId: string;
@@ -19,16 +19,37 @@ type LogRecord = {
   responseBody: string;
 };
 
-const apps: AppData[] = [
-  { id: "app_8F2KD91M", name: "BankHub EKYC", short: "BE", color: "#6956d9", environment: "Production" },
-  { id: "app_3H7NP24Q", name: "FinFlow Personal", short: "FP", color: "#16856f", environment: "Production" },
-  { id: "app_9C1RT63V", name: "LendNow Sandbox", short: "LN", color: "#d9773b", environment: "Sandbox" },
+type TeamData = { id: string; name: string; short: string; role: string; apps: AppData[] };
+
+const languages = [
+  { code: "VI", name: "Tiếng Việt", flag: "🇻🇳" },
+  { code: "EN", name: "English", flag: "🇺🇸" },
+  { code: "JA", name: "日本語", flag: "🇯🇵" },
+  { code: "ZH", name: "中文", flag: "🇨🇳" },
+];
+
+const teams: TeamData[] = [
+  {
+    id: "team_1", name: "VietFin Digital", short: "VD", role: "Owner",
+    apps: [
+      { id: "app_8F2KD91M", name: "BankHub EKYC", short: "BE", color: "#6956d9", environment: "Production" },
+      { id: "app_3H7NP24Q", name: "FinFlow Personal", short: "FP", color: "#16856f", environment: "Production" },
+      { id: "app_9C1RT63V", name: "LendNow Sandbox", short: "LN", color: "#d9773b", environment: "Sandbox" },
+    ]
+  },
+  {
+    id: "team_2", name: "Techcom Solutions", short: "TS", role: "Admin",
+    apps: [
+      { id: "app_7X9AB12C", name: "Payment Gateway", short: "PG", color: "#e63946", environment: "Production" },
+      { id: "app_1Y4ZB99D", name: "Internal Tools", short: "IT", color: "#457b9d", environment: "Staging" }
+    ]
+  }
 ];
 
 const navGroups = [
   { label: "", items: [{ icon: "⌂", label: "Tổng quan" }] },
-  { label: "DEVELOPER", items: [{ icon: "⌁", label: "API keys" }, { icon: "↗", label: "API" }, { icon: "◫", label: "Webhooks" }, { icon: "≡", label: "Logs" }] },
-  { label: "HOẠT ĐỘNG", items: [{ icon: "◎", label: "Grants" }, { icon: "↗", label: "Usage" }, { icon: "◇", label: "Grant debugger" }] },
+  { label: "DEVELOPER", items: [{ icon: "⌁", label: "API keys" }, { icon: "↗", label: "Direct URL" }, { icon: "◫", label: "Webhooks" }, { icon: "≡", label: "Logs" }, { icon: "📖", label: "Userguide" }] },
+  { label: "HOẠT ĐỘNG", items: [{ icon: "◎", label: "Grants" }, { icon: "↗", label: "Usage" }, { icon: "💳", label: "Billing" }, { icon: "◇", label: "Grant debugger" }] },
   { label: "CẤU HÌNH", items: [{ icon: "⚙", label: "Cài đặt App" }, { icon: "♙", label: "Thành viên" }] },
 ];
 
@@ -49,6 +70,7 @@ const scopeConfig: Record<Exclude<AnalyticsTab, "Connection">, { grants: string;
   Transfer: { grants: "1.126", costGrants: "750.000 VNĐ", active: "1.084", calls: "108.200", cost: "215.600.000", endpoints: ["/v2/transfers", "/v2/transfers/{id}", "/v2/transfers/confirm"], price: 80 },
   eKYC: { grants: "1.508", costGrants: "750.000 VNĐ", active: "1.492", calls: "176.500", cost: "14.120.000", endpoints: ["/v2/ekyc/sessions", "/v2/ekyc/verify", "/v2/ekyc/results/{id}"], price: 80 },
   Invoice: { grants: "624", costGrants: "750.000 VNĐ", active: "603", calls: "72.600", cost: "3.630.000", endpoints: ["/v2/invoices", "/v2/invoices/{id}", "/v2/invoices/search"], price: 50 },
+  Deeplink: { grants: "820", costGrants: "750.000 VNĐ", active: "795", calls: "115.400", cost: "11.540.000", endpoints: ["/v2/deeplink/generate", "/v2/deeplink/resolve", "/v2/deeplink/status"], price: 100 },
 };
 
 function buildScopeRows(scope: Exclude<AnalyticsTab, "Connection">): DetailRow[] {
@@ -83,6 +105,7 @@ const scopeUnits: Record<Exclude<AnalyticsTab, "Connection">, string> = {
   Transfer: "giao dịch",
   eKYC: "lượt",
   Invoice: "hóa đơn",
+  Deeplink: "lượt",
 };
 
 const analyticsData: Record<AnalyticsTab, {
@@ -160,6 +183,17 @@ const analyticsData: Record<AnalyticsTab, {
     rows: DetailRow[];
     hasWebhook?: boolean;
   }>,
+  Deeplink: {
+    subtitle: "Thống kê lượt khởi tạo và chuyển hướng Deeplink tới ứng dụng ngân hàng",
+    metrics: [
+      { label: "Tổng Deeplink", value: "115.400", change: "+14.2%", unit: "lượt" },
+      { label: "Tổng tiền giao dịch", value: "48.250.000.000 VNĐ", change: "+18.5%" },
+      { label: "Chi phí", value: "11.540.000 VNĐ", change: "+12.1%" },
+      { label: "Deeplink thành công", value: "112.800", change: "+15.0%", unit: "lượt" },
+      { label: "Deeplink thất bại", value: "2.600", change: "-2.1%", tone: "danger", unit: "lượt" },
+    ],
+    rows: buildScopeRows("Deeplink"),
+  },
 };
 
 const screenData: Record<string, { description: string; action: string; columns: string[]; rows: string[][] }> = {
@@ -177,12 +211,13 @@ const screenData: Record<string, { description: string; action: string; columns:
 const monthChartValues = [34, 39, 37, 45, 42, 49, 47, 52, 50, 57, 54, 61, 59, 64, 62, 69, 66, 72, 70, 76, 73, 81, 78, 84, 82, 88, 85, 91, 89, 94, 92];
 const grantNewDaily = [3, 4, 3, 5, 4, 6, 5, 5, 4, 7, 5, 6, 5, 7, 5, 8, 6, 5, 7, 6, 8, 5, 7, 6, 9, 7, 6, 8, 7, 9, 6];
 const grantPausedDeletedDaily = [0, 1, 0, 1, 0, 1, 1, 0, 1, 1, 0, 1, 0, 2, 1, 0, 1, 1, 0, 1, 2, 0, 1, 1, 0, 2, 1, 0, 1, 1, 0];
-const visibleUsageTabs: AnalyticsTab[] = ["Transaction", "QRPay", "VirtualAccount", "BalanceHook", "Transfer"];
+const visibleUsageTabs: AnalyticsTab[] = ["Transaction", "QRPay", "VirtualAccount", "BalanceHook", "Transfer", "Deeplink"];
 
 function usageTabLabel(tab: AnalyticsTab) {
   if (tab === "Connection") return "Grant";
   if (tab === "VirtualAccount") return "Virtual Account";
   if (tab === "BalanceHook") return "Balance Hook";
+  if (tab === "Deeplink") return "Deeplink";
   return tab;
 }
 
@@ -191,6 +226,141 @@ function KpiValue({ value, unit }: { value: string; unit?: string }) {
   const displayVal = isMoney ? value.slice(0, -4) : value;
   const displayUnit = isMoney ? "đ" : unit;
   return <>{displayVal}{displayUnit && <i className="kpi-unit">{displayUnit}</i>}</>;
+}
+
+function FormInput({
+  value,
+  onChange,
+  placeholder,
+  type = "text",
+  size = "md",
+  className = "",
+  autoFocus,
+  disabled
+}: {
+  value: string;
+  onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  placeholder?: string;
+  type?: string;
+  size?: "sm" | "md" | "lg";
+  className?: string;
+  autoFocus?: boolean;
+  disabled?: boolean;
+}) {
+  return (
+    <input
+      type={type}
+      value={value}
+      onChange={onChange}
+      placeholder={placeholder}
+      autoFocus={autoFocus}
+      disabled={disabled}
+      className={`custom-input input-${size} ${className}`}
+    />
+  );
+}
+
+function FormSelect({
+  value,
+  onChange,
+  options,
+  size = "md",
+  className = ""
+}: {
+  value: string;
+  onChange: (e: React.ChangeEvent<HTMLSelectElement>) => void;
+  options: { label: string; value: string }[] | string[];
+  size?: "sm" | "md" | "lg";
+  className?: string;
+}) {
+  return (
+    <div className={`custom-select-wrap select-${size} ${className}`}>
+      <select value={value} onChange={onChange} className="custom-select">
+        {options.map(opt => typeof opt === "string" ? (
+          <option key={opt} value={opt}>{opt}</option>
+        ) : (
+          <option key={opt.value} value={opt.value}>{opt.label}</option>
+        ))}
+      </select>
+      <span className="select-arrow">⌄</span>
+    </div>
+  );
+}
+
+function FormButton({
+  children,
+  onClick,
+  variant = "secondary",
+  size = "md",
+  type = "button",
+  disabled,
+  className = ""
+}: {
+  children: React.ReactNode;
+  onClick?: (e: React.MouseEvent<HTMLButtonElement>) => void;
+  variant?: "primary" | "secondary" | "outline" | "danger" | "ghost";
+  size?: "sm" | "md" | "lg";
+  type?: "button" | "submit" | "reset";
+  disabled?: boolean;
+  className?: string;
+}) {
+  return (
+    <button
+      type={type}
+      onClick={onClick}
+      disabled={disabled}
+      className={`custom-button btn-${variant} btn-${size} ${className}`}
+    >
+      {children}
+    </button>
+  );
+}
+
+function CredentialBox({
+  value,
+  maskedValue,
+  label,
+  showToggle,
+  isShowing,
+  onToggle,
+  onCopy,
+  onRotate,
+  note
+}: {
+  value: string;
+  maskedValue?: string;
+  label: string;
+  showToggle?: boolean;
+  isShowing?: boolean;
+  onToggle?: () => void;
+  onCopy: () => void;
+  onRotate?: () => void;
+  note?: string;
+}) {
+  const displayVal = showToggle && !isShowing ? (maskedValue || "••••••••••••••••••••••••••••••••") : value;
+  return (
+    <div className="credential-box-wrap">
+      <div className="credential-field">
+        <code>{displayVal}</code>
+        <div className="credential-actions">
+          {showToggle && (
+            <button type="button" onClick={onToggle} title={isShowing ? "Ẩn giá trị" : "Hiện giá trị"}>
+              {isShowing ? "Ẩn" : "Hiện"}
+            </button>
+          )}
+          <button type="button" onClick={onCopy} title={`Sao chép ${label}`}>
+            ▣ Sao chép
+          </button>
+          {onRotate && (
+            <button type="button" className="btn-rotate" onClick={onRotate} title="Rotate secret key mới">
+              ↻ Rotate
+            </button>
+          )}
+        </div>
+      </div>
+      {note && <small className="field-note">{note}</small>}
+    </div>
+  );
 }
 
 const usageTableData: Record<AnalyticsTab, { title: string; columns: string[]; rows: string[][] }> = {
@@ -360,6 +530,27 @@ const usageTableData: Record<AnalyticsTab, { title: string; columns: string[]; r
       ["inv_2026_1839", "grt_8L2KP91N", "Nguyễn Minh Anh", "—", "₫1,250,000", "23/07/2026", "Cancelled", "24/07 · 13:20"],
     ],
   },
+  Deeplink: {
+    title: "Danh sách giao dịch Deeplink",
+    columns: ["STT", "Request ID", "Ngân hàng", "Tên tài khoản", "Số tiền", "Nội dung", "Direct URL", "Status", "Ngày tạo"],
+    rows: [
+      ["1", "req_DLK98124", "Techcombank", "Nguyễn Minh Anh", "₫2,500,000", "Thanh toan don hang #10928", "https://dl.bankhub.dev/tcb/pay?id=98124", "Success", "24/07/2026 17:04:12"],
+      ["2", "req_DLK98110", "Vietcombank", "Trần Hoàng Long", "₫1,200,000", "Chuyen tien hoc phi T7", "https://dl.bankhub.dev/vcb/pay?id=98110", "Success", "24/07/2026 16:45:08"],
+      ["3", "req_DLK98095", "MB Bank", "Phạm Thùy Linh", "₫850,000", "Thanh toan ve may bay", "https://dl.bankhub.dev/mbb/pay?id=98095", "Success", "24/07/2026 15:30:22"],
+      ["4", "req_DLK98082", "ACB", "Đỗ Tuấn Nam", "₫5,400,000", "Thanh toan hoa don dien nuoc", "https://dl.bankhub.dev/acb/pay?id=98082", "Failed", "24/07/2026 14:12:49"],
+      ["5", "req_DLK98070", "BIDV", "Vũ Thu Trang", "₫3,100,000", "Nop tien tai khoan chung khoan", "https://dl.bankhub.dev/bidv/pay?id=98070", "Success", "24/07/2026 13:55:01"],
+      ["6", "req_DLK98058", "Sacombank", "Đặng Quốc Huy", "₫750,000", "Thanh toan hop dong BH", "https://dl.bankhub.dev/stb/pay?id=98058", "Success", "24/07/2026 12:40:15"],
+      ["7", "req_DLK98044", "VietinBank", "Bùi Mỹ Linh", "₫10,000,000", "Chuyen khoan dat coc hop dong", "https://dl.bankhub.dev/ctg/pay?id=98044", "Success", "24/07/2026 11:18:30"],
+      ["8", "req_DLK98031", "VPBank", "Nguyễn Thái Dương", "₫420,000", "Thanh toan cuoc internet", "https://dl.bankhub.dev/vpb/pay?id=98031", "Success", "24/07/2026 10:05:40"],
+      ["9", "req_DLK98019", "TPBank", "Lý Kim Ngân", "₫1,800,000", "Thanh toan don hang Tiki", "https://dl.bankhub.dev/tpb/pay?id=98019", "Failed", "24/07/2026 09:22:11"],
+      ["10", "req_DLK98005", "Vietcombank", "Phan Thanh Tùng", "₫6,300,000", "Nop phi hop dong dich vu", "https://dl.bankhub.dev/vcb/pay?id=98005", "Success", "24/07/2026 08:45:00"],
+      ["11", "req_DLK97992", "Techcombank", "Lê Hoàng Minh", "₫900,000", "Thanh toan phi dich vu SaaS", "https://dl.bankhub.dev/tcb/pay?id=97992", "Success", "23/07/2026 18:30:45"],
+      ["12", "req_DLK97980", "MB Bank", "Nguyễn Minh Anh", "₫15,000,000", "Thanh toan tien thue nha T7", "https://dl.bankhub.dev/mbb/pay?id=97980", "Success", "23/07/2026 16:15:20"],
+      ["13", "req_DLK97968", "BIDV", "Trần Hoàng Long", "₫2,100,000", "Chuyen tien mung sinh nhat", "https://dl.bankhub.dev/bidv/pay?id=97968", "Success", "23/07/2026 14:02:10"],
+      ["14", "req_DLK97955", "ACB", "Phạm Thùy Linh", "₫3,750,000", "Thanh toan hoa don sieu thi", "https://dl.bankhub.dev/acb/pay?id=97955", "Success", "23/07/2026 11:40:05"],
+      ["15", "req_DLK97942", "Sacombank", "Đỗ Tuấn Nam", "₫500,000", "Nap tien dien thoai", "https://dl.bankhub.dev/stb/pay?id=97942", "Success", "23/07/2026 09:10:30"],
+    ],
+  },
 };
 
 function usageStatuses(tab: AnalyticsTab) {
@@ -384,6 +575,7 @@ function getChartData(tab: AnalyticsTab, range: ChartTimeRange) {
     VirtualAccount: { title: "Xu hướng tạo Virtual Account", primary: "Tạo mới", secondary: "Xóa", unit: "giao dịch" },
     BalanceHook: { title: "Xu hướng thông báo Balance Hook", primary: "Webhook thành công", secondary: "Lỗi / Retry", unit: "thông báo" },
     Transfer: { title: "Xu hướng chuyển tiền Transfer", primary: "Chuyển tiền thành công", secondary: "Thất bại", unit: "giao dịch" },
+    Deeplink: { title: "Xu hướng tạo Deeplink", primary: "Deeplink thành công", secondary: "Thất bại", unit: "lượt" },
     Identity: { title: "Xu hướng gọi API Identity", primary: "Thành công", secondary: "Lỗi", unit: "calls" },
     Balance: { title: "Xu hướng tra cứu Balance", primary: "Thành công", secondary: "Lỗi", unit: "calls" },
     eKYC: { title: "Xu hướng xác thực eKYC", primary: "Thành công", secondary: "Lỗi", unit: "lượt" },
@@ -547,13 +739,21 @@ function AnalyticsPanel({ tab, search, onSearch, timeFilter, onTimeFilter, page,
   return (
     <section className="panel compact-analytics usage-content">
       <div className={`compact-kpis ${metrics.length === 5 ? "five-columns" : ""}`}>
-        {metrics.map(metric => (
-          <div key={metric.label}>
-            <span>{metric.label}</span>
-            <strong><KpiValue value={metric.value} unit={metric.unit} /></strong>
-            {metric.change && <small className={metric.tone}>↗ {metric.change}</small>}
-          </div>
-        ))}
+        {metrics.map(metric => {
+          const valStr = `${metric.value}${metric.unit ? " " + metric.unit : ""}`;
+
+          return (
+            <div key={metric.label} title={`${metric.label}: ${valStr}`}>
+              <div className="kpi-top-row">
+                <span>{metric.label}</span>
+                {metric.change && <small className={metric.tone}>↗ {metric.change}</small>}
+              </div>
+              <strong>
+                <KpiValue value={metric.value} unit={metric.unit} />
+              </strong>
+            </div>
+          );
+        })}
       </div>
       <div className="wide-chart">
         <div className="mini-chart-title">
@@ -599,8 +799,15 @@ function AnalyticsPanel({ tab, search, onSearch, timeFilter, onTimeFilter, page,
 }
 
 export default function Home() {
-  const [selectedApp, setSelectedApp] = useState(apps[0]);
+  const [selectedTeam, setSelectedTeam] = useState(teams[0]);
+  const [selectedApp, setSelectedApp] = useState(teams[0].apps[0]);
   const [appMenuOpen, setAppMenuOpen] = useState(false);
+  const [teamMenuOpen, setTeamMenuOpen] = useState(false);
+  const [currentLang, setCurrentLang] = useState(languages[0]);
+  const [langMenuOpen, setLangMenuOpen] = useState(false);
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [searchModalOpen, setSearchModalOpen] = useState(false);
+  const [searchModalQuery, setSearchModalQuery] = useState("");
   const [activeNav, setActiveNav] = useState("Tổng quan");
   const [analyticsTab, setAnalyticsTab] = useState<AnalyticsTab>("Connection");
   const [search, setSearch] = useState("");
@@ -612,9 +819,211 @@ export default function Home() {
   const [notice, setNotice] = useState("");
   const [mobileMenu, setMobileMenu] = useState(false);
   const [usageExpanded, setUsageExpanded] = useState(true);
-  const [usageView, setUsageView] = useState<"Total" | AnalyticsTab>("Total");
+  const [usageView, setUsageView] = useState<AnalyticsTab>("Transaction");
   const [sidebarWidth, setSidebarWidth] = useState(286);
   const [resizingSidebar, setResizingSidebar] = useState(false);
+
+  // Active enabled scopes for the current onboarded app
+  const [enabledScopes, setEnabledScopes] = useState<AnalyticsTab[]>([
+    "Transaction", "QRPay", "Deeplink"
+  ]);
+
+  // Log records state for dynamic sandbox testing
+  const [logRecordsState, setLogRecordsState] = useState<LogRecord[]>(logRecords);
+
+  function runTestApiCall(scope: AnalyticsTab, params: { bank: string; amount?: string; accountName?: string; note?: string }) {
+    const reqId = `req_${scope.slice(0, 3).toUpperCase()}${Math.floor(10000 + Math.random() * 90000)}`;
+    const now = new Date();
+    const timeStr = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')} ${now.getDate().toString().padStart(2, '0')}/${(now.getMonth() + 1).toString().padStart(2, '0')}/${now.getFullYear()}`;
+    
+    // 1. Add log entry
+    const newLog: LogRecord = {
+      requestId: reqId,
+      method: scope === "Transaction" || scope === "Identity" || scope === "Balance" ? "GET" : "POST",
+      endpoint: scopeConfig[scope as Exclude<AnalyticsTab, "Connection">]?.endpoints[0] || `/v2/${scope.toLowerCase()}`,
+      scope: scope,
+      grantId: "grt_8L2KP91N",
+      bank: params.bank || "Techcombank",
+      http: "200",
+      latency: `${Math.floor(180 + Math.random() * 120)} ms`,
+      createdAt: timeStr,
+      requestBody: JSON.stringify({ bank: params.bank, amount: params.amount || 100000, accountName: params.accountName, note: params.note }, null, 2),
+      responseBody: JSON.stringify({ status: "SUCCESS", requestId: reqId, message: "Sandbox Test Execution Successful", timestamp: new Date().toISOString() }, null, 2)
+    };
+    setLogRecordsState(prev => [newLog, ...prev]);
+
+    // 2. Add row entry to usageTableData
+    if (usageTableData[scope]) {
+      const nextStt = (usageTableData[scope].rows.length + 1).toString();
+      const amountFormatted = `₫${(parseInt(params.amount || "1500000", 10)).toLocaleString("en-US")}`;
+      const bankName = params.bank || "Techcombank";
+      const userName = params.accountName || "Nguyễn Minh Anh";
+      const noteText = params.note || "Thanh toan don hang #10928";
+      const datePart = timeStr.split(" ")[1] || "14/08/2026";
+      const random4 = Math.floor(1000 + Math.random() * 9000).toString();
+
+      let newRow: string[] = [];
+
+      switch (scope) {
+        case "QRPay":
+          // columns: ["STT", "QR ID", "Grant ID", "Reference", "Transaction", "Ngân hàng", "STK", "Tên người nhận", "Số tiền", "Nội dung", "Thông báo", "Thời gian"]
+          newRow = [
+            nextStt,
+            `qr_${reqId.slice(4)}`,
+            "grt_8L2KP91N",
+            `FT260724${Math.floor(100000 + Math.random() * 900000)}`,
+            `BH${Math.floor(10000 + Math.random() * 90000)}`,
+            bankName,
+            `1903 •••• ${random4}`,
+            userName,
+            amountFormatted,
+            noteText,
+            "Delivered",
+            timeStr
+          ];
+          break;
+
+        case "Deeplink":
+          // columns: ["STT", "Request ID", "Ngân hàng", "Tên tài khoản", "Số tiền", "Nội dung", "Direct URL", "Status", "Ngày tạo"]
+          newRow = [
+            nextStt,
+            reqId,
+            bankName,
+            userName,
+            amountFormatted,
+            noteText,
+            `https://dl.bankhub.dev/${bankName.toLowerCase().slice(0, 3)}/pay?id=${reqId}`,
+            "Success",
+            timeStr
+          ];
+          break;
+
+        case "Transaction":
+          // columns: ["STT", "Request ID", "Grant ID", "Ngân hàng", "Từ ngày", "Đến ngày", "Trạng thái", "Tốc độ", "Thời gian gọi"]
+          newRow = [
+            nextStt,
+            reqId,
+            "grt_8L2KP91N",
+            bankName,
+            "01/08/2026",
+            datePart,
+            "Success",
+            "0.4s",
+            timeStr
+          ];
+          break;
+
+        case "VirtualAccount":
+          // columns: ["STT", "Mã VA", "Grant ID", "Ngân hàng", "Tên tài khoản", "Số tài khoản VA", "Tổng tiền thu", "Trạng thái", "Thời gian tạo"]
+          newRow = [
+            nextStt,
+            `va_${reqId.slice(4)}`,
+            "grt_8L2KP91N",
+            bankName,
+            userName,
+            `99021${Math.floor(100000 + Math.random() * 900000)}`,
+            amountFormatted,
+            "Active",
+            timeStr
+          ];
+          break;
+
+        case "Transfer":
+          // columns: ["Transfer ID", "Grant ID", "Ngân hàng nhận", "STK nhận", "Tên người nhận", "Số tiền", "Nội dung", "Trạng thái", "Thời gian"]
+          newRow = [
+            `trf_${reqId.slice(4)}`,
+            "grt_8L2KP91N",
+            bankName,
+            `0681 •••• ${random4}`,
+            userName,
+            amountFormatted,
+            noteText,
+            "Success",
+            timeStr
+          ];
+          break;
+
+        case "Identity":
+          // columns: ["Request ID", "Grant ID", "Người dùng", "Ngân hàng", "Thông tin truy vấn", "Kết quả", "Thời gian"]
+          newRow = [
+            reqId,
+            "grt_8L2KP91N",
+            userName,
+            bankName,
+            "Họ tên, CCCD, ngày sinh",
+            "Success",
+            timeStr
+          ];
+          break;
+
+        case "Balance":
+          // columns: ["Request ID", "Grant ID", "Ngân hàng / Tài khoản", "Số dư khả dụng", "Tiền tệ", "Trạng thái", "Cập nhật"]
+          newRow = [
+            reqId,
+            "grt_8L2KP91N",
+            `${bankName} · •• ${random4}`,
+            amountFormatted,
+            "VND",
+            "Success",
+            timeStr
+          ];
+          break;
+
+        case "BalanceHook":
+          // columns: ["Event ID", "Webhook Endpoint", "Sự kiện", "Số dư thay đổi", "HTTP Status", "Số lần thử", "Cập nhật cuối"]
+          newRow = [
+            `evt_${reqId.slice(4)}`,
+            "https://api.vendor.vn/cas/webhook",
+            "balance.credited",
+            `+${amountFormatted}`,
+            "200 OK",
+            "1/3",
+            timeStr
+          ];
+          break;
+
+        case "eKYC":
+          // columns: ["Session ID", "Họ và tên", "Số CCCD", "Độ khớp khuôn mặt", "Liveness Check", "Trạng thái", "Thời gian"]
+          newRow = [
+            `ekyc_${reqId.slice(4)}`,
+            userName,
+            `079204••••${random4.slice(0, 2)}`,
+            "98.5%",
+            "Passed",
+            "Verified",
+            timeStr
+          ];
+          break;
+
+        case "Invoice":
+          // columns: ["Invoice ID", "Grant ID", "Người mua", "MST", "Giá trị", "Ngày hoá đơn", "Trạng thái", "Cập nhật"]
+          newRow = [
+            `inv_${reqId.slice(4)}`,
+            "grt_8L2KP91N",
+            userName,
+            `031${Math.floor(10000000 + Math.random() * 90000000)}`,
+            amountFormatted,
+            datePart,
+            "Issued",
+            timeStr
+          ];
+          break;
+
+        default:
+          newRow = [nextStt, reqId, "grt_8L2KP91N", bankName, userName, noteText, "Success", timeStr];
+      }
+
+      usageTableData[scope].rows = [newRow, ...usageTableData[scope].rows];
+    }
+
+    // 3. Increment call count in scopeConfig
+    if (scopeConfig[scope as Exclude<AnalyticsTab, "Connection">]) {
+      const currentCalls = parseInt(scopeConfig[scope as Exclude<AnalyticsTab, "Connection">].calls.replace(/\./g, ""), 10) || 0;
+      scopeConfig[scope as Exclude<AnalyticsTab, "Connection">].calls = (currentCalls + 1).toLocaleString("vi-VN");
+    }
+
+    showNotice(`✓ Đã gọi API Sandbox [${scope}] thành công! Dữ liệu đã cập nhật vào Usage & Logs.`);
+  }
 
   const analytics = analyticsData[analyticsTab];
   const filteredRows = useMemo(() => analytics.rows.filter((row) => {
@@ -627,7 +1036,7 @@ export default function Home() {
   const pageCount = Math.max(1, Math.ceil(filteredRows.length / pageSize));
   const currentPage = Math.min(page, pageCount);
   const paginatedRows = filteredRows.slice((currentPage - 1) * pageSize, currentPage * pageSize);
-  const isDeveloperPage = activeNav === "API keys" || activeNav === "API" || activeNav === "Webhooks";
+  const isDeveloperPage = activeNav === "API keys" || activeNav === "Direct URL" || activeNav === "Webhooks";
 
   function showNotice(msg: string) {
     setNotice(msg);
@@ -654,17 +1063,21 @@ export default function Home() {
   return (
     <div className={`console-shell ${resizingSidebar ? "resizing-sidebar" : ""}`} style={{ "--sidebar-width": `${sidebarWidth}px` } as CSSProperties}>
       <aside className={`sidebar ${mobileMenu ? "mobile-open" : ""}`}>
-        <div className="brand-row"><a className="brand" href="#"><span className="brand-mark"><i /><i /><i /></span><span>CAS</span></a><button className="sidebar-collapse" onClick={() => setMobileMenu(false)}>«</button></div>
-        <div className="vendor-label">APP ĐANG CHỌN</div>
-        <div className="app-switcher-wrap">
-          <button className="app-switcher" onClick={() => setAppMenuOpen(!appMenuOpen)}><span className="app-avatar" style={{ background: selectedApp.color }}>{selectedApp.short}</span><span className="app-copy"><strong>{selectedApp.name}</strong><small>{selectedApp.id}</small></span><span className="switcher-chevrons">⌃<br />⌄</span></button>
-          {appMenuOpen && <div className="app-menu"><div className="app-menu-heading"><span>Apps của VietFin Digital</span><button>＋ Tạo App</button></div>{apps.map(app => <button className={app.id === selectedApp.id ? "selected" : ""} key={app.id} onClick={() => { setSelectedApp(app); setAppMenuOpen(false); }}><span className="app-avatar" style={{ background: app.color }}>{app.short}</span><span><strong>{app.name}</strong><small>{app.environment} · {app.id}</small></span>{app.id === selectedApp.id && <b>✓</b>}</button>)}</div>}
+        <div className="brand-row" style={{ position: "relative", cursor: "pointer", paddingRight: 8 }} onClick={() => setAppMenuOpen(!appMenuOpen)}>
+          <a className="brand" href="#" onClick={e => e.preventDefault()} style={{ flex: 1, display: "flex", alignItems: "center", gap: 10, textDecoration: "none" }}>
+            <span className="brand-mark"><i /><i /><i /></span>
+            <span style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+              <strong>{selectedApp.name}</strong>
+            </span>
+            <span className="switcher-chevrons" style={{ marginLeft: "auto", fontSize: 12, color: "var(--muted)", lineHeight: 1 }}>⌃<br />⌄</span>
+          </a>
+          <button className="sidebar-collapse" onClick={(e) => { e.stopPropagation(); setMobileMenu(false); }}>«</button>
+          {appMenuOpen && <div className="app-menu" style={{ top: "100%", left: 10, width: "calc(100% - 20px)", zIndex: 10 }} onClick={e => e.stopPropagation()}><div className="app-menu-heading"><span>Apps của {selectedTeam.name}</span><button>＋ Tạo App</button></div>{selectedTeam.apps.map(app => <button className={app.id === selectedApp.id ? "selected" : ""} key={app.id} onClick={() => { setSelectedApp(app); setAppMenuOpen(false); }}><span className="app-avatar" style={{ background: app.color }}>{app.short}</span><span><strong>{app.name}</strong><small>{app.environment} · {app.id}</small></span>{app.id === selectedApp.id && <b>✓</b>}</button>)}</div>}
         </div>
         <nav className="sidebar-nav">{navGroups.map((group, i) => <div className="nav-group" key={i}>{group.label && <p>{group.label}</p>}{group.items.map(item => <div className="nav-item-wrap" key={item.label}>
           <button className={activeNav === item.label ? "active" : ""} onClick={() => { if (item.label === "Usage") { if (activeNav === "Usage") setUsageExpanded(!usageExpanded); else { setActiveNav("Usage"); setUsageExpanded(true); } } else { setActiveNav(item.label); setMobileMenu(false); } }}><span>{item.icon}</span>{item.label}{item.label === "Usage" && <small className={`nav-arrow ${usageExpanded ? "open" : ""}`}>⌄</small>}</button>
           {item.label === "Usage" && usageExpanded && <div className="usage-subnav">
-            <button className={activeNav === "Usage" && usageView === "Total" ? "active" : ""} onClick={() => { setActiveNav("Usage"); setUsageView("Total"); setMobileMenu(false); }}>Total</button>
-            {visibleUsageTabs.map(tab => <button className={activeNav === "Usage" && usageView === tab ? "active" : ""} key={tab} onClick={() => { setActiveNav("Usage"); setUsageView(tab); setAnalyticsTab(tab); setSearch(""); setGrantFilter("Tất cả Grant"); setStatusFilter("Tất cả trạng thái"); setPage(1); setMobileMenu(false); }}>{usageTabLabel(tab)}</button>)}
+            {visibleUsageTabs.filter(tab => enabledScopes.includes(tab)).map(tab => <button className={activeNav === "Usage" && usageView === tab ? "active" : ""} key={tab} onClick={() => { setActiveNav("Usage"); setUsageView(tab); setAnalyticsTab(tab); setSearch(""); setGrantFilter("Tất cả Grant"); setStatusFilter("Tất cả trạng thái"); setPage(1); setMobileMenu(false); }}>{usageTabLabel(tab)}</button>)}
           </div>}
         </div>)}</div>)}
           <div className="nav-group utility-nav">
@@ -672,25 +1085,155 @@ export default function Home() {
             <button onClick={() => { showNotice("Đã mở trung tâm hỗ trợ"); setMobileMenu(false); }}><span>◉</span>Hỗ trợ</button>
           </div>
         </nav>
-        <div className="sidebar-footer"><div className="vendor-profile"><span className="profile-avatar">VD</span><span><small>VENDOR</small><strong>VietFin Digital</strong></span><button>•••</button></div></div>
+        <div className="sidebar-footer" style={{ position: "relative" }}>
+          {teamMenuOpen && <div className="app-menu" style={{ bottom: "100%", top: "auto", left: 10, width: "calc(100% - 20px)", marginBottom: 10, zIndex: 10 }}><div className="app-menu-heading"><span>Teams của bạn</span><button>＋ Tạo Team</button></div>{teams.map(team => <button className={team.id === selectedTeam.id ? "selected" : ""} key={team.id} onClick={() => { setSelectedTeam(team); setSelectedApp(team.apps[0]); setTeamMenuOpen(false); }}><span className="app-avatar" style={{ background: "#4a5568" }}>{team.short}</span><span><strong>{team.name}</strong><small>Vai trò: {team.role}</small></span>{team.id === selectedTeam.id && <b>✓</b>}</button>)}</div>}
+          <div className="vendor-profile" style={{ cursor: "pointer" }} onClick={() => setTeamMenuOpen(!teamMenuOpen)}>
+            <span className="profile-avatar">{selectedTeam.short}</span>
+            <span><small>TEAM</small><strong>{selectedTeam.name}</strong></span>
+            <button style={{ pointerEvents: "none" }}>•••</button>
+          </div>
+        </div>
         <div className="sidebar-resizer" role="separator" aria-label="Thay đổi chiều rộng menu" aria-orientation="vertical" onPointerDown={e => { setResizingSidebar(true); e.currentTarget.setPointerCapture(e.pointerId); }} onPointerMove={e => { if (resizingSidebar) setSidebarWidth(Math.min(390, Math.max(220, e.clientX))); }} onPointerUp={e => { setResizingSidebar(false); e.currentTarget.releasePointerCapture(e.pointerId); }} onPointerCancel={() => setResizingSidebar(false)} />
       </aside>
 
-      <div className="workspace">
-        <header className="topbar"><button className="mobile-trigger" onClick={() => setMobileMenu(true)}>☰</button><div className="crumbs"><span>{selectedApp.name}</span><b>/</b><strong>{activeNav}</strong>{activeNav === "Usage" && <><b>/</b><strong>{usageView === "Connection" ? "Grant" : usageView === "VirtualAccount" ? "Virtual Account" : usageView === "BalanceHook" ? "Balance Hook" : usageView}</strong></>}</div><div className="top-actions"><button className="status-pill"><i />Hệ thống ổn định</button><button className="icon-button">⌕</button><button className="language">VI⌄</button><span className="user-avatar">MN</span></div></header>
+      <div className="workspace" onClick={() => { if (appMenuOpen) setAppMenuOpen(false); if (teamMenuOpen) setTeamMenuOpen(false); if (langMenuOpen) setLangMenuOpen(false); if (userMenuOpen) setUserMenuOpen(false); }}>
+        <header className="topbar">
+          <button className="mobile-trigger" onClick={() => setMobileMenu(true)}>☰</button>
+          <div className="crumbs">
+            <span>{selectedApp.name}</span>
+            <b>/</b>
+            <strong>{activeNav}</strong>
+            {activeNav === "Usage" && <><b>/</b><strong>{usageView === "Connection" ? "Grant" : usageView === "VirtualAccount" ? "Virtual Account" : usageView === "BalanceHook" ? "Balance Hook" : usageView}</strong></>}
+          </div>
+          <div className="top-actions">
+            <button className="status-pill" onClick={() => showNotice("Hệ thống Open Banking hoạt động bình thường ( uptime 99.99% )")}>
+              <i />Hệ thống ổn định
+            </button>
+            <button className="icon-button" title="Tìm kiếm nhanh (Cmd+K)" onClick={(e) => { e.stopPropagation(); setSearchModalOpen(true); }}>⌕</button>
+
+            {/* Language Selector Dropdown */}
+            <div className="lang-selector-wrap" onClick={e => e.stopPropagation()}>
+              <button className="language-selector-btn" onClick={() => { setLangMenuOpen(!langMenuOpen); setUserMenuOpen(false); }}>
+                <span>{currentLang.flag}</span>
+                <span>{currentLang.code}</span>
+                <span style={{ fontSize: 11, opacity: 0.6 }}>⌄</span>
+              </button>
+              {langMenuOpen && (
+                <div className="lang-menu">
+                  {languages.map(lang => (
+                    <button
+                      key={lang.code}
+                      className={lang.code === currentLang.code ? "selected" : ""}
+                      onClick={() => {
+                        setCurrentLang(lang);
+                        setLangMenuOpen(false);
+                        showNotice(`Đã chuyển ngôn ngữ sang ${lang.name}`);
+                      }}
+                    >
+                      <span>{lang.flag}</span>
+                      <span>{lang.name}</span>
+                      {lang.code === currentLang.code && <span className="check">✓</span>}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* User Profile Avatar & Menu */}
+            <div className="user-avatar-wrap" onClick={e => e.stopPropagation()}>
+              <button className="user-avatar" style={{ border: 0, cursor: "pointer" }} onClick={() => { setUserMenuOpen(!userMenuOpen); setLangMenuOpen(false); }}>
+                MN
+              </button>
+              {userMenuOpen && (
+                <div className="user-menu-popover">
+                  <div className="user-menu-header">
+                    <span className="user-avatar" style={{ width: 34, height: 34 }}>MN</span>
+                    <div>
+                      <strong>Minh Nguyễn</strong>
+                      <small>minh.nguyen@vietfin.vn</small>
+                      <span className="badge">Super Admin</span>
+                    </div>
+                  </div>
+                  <button onClick={() => { showNotice("Đã mở trang Hồ sơ cá nhân"); setUserMenuOpen(false); }}>👤 Hồ sơ cá nhân</button>
+                  <button onClick={() => { showNotice("Đã mở Cài đặt bảo mật & 2FA"); setUserMenuOpen(false); }}>🔑 Cài đặt bảo mật & 2FA</button>
+                  <button onClick={() => { showNotice("Đã mở Nhật ký truy cập"); setUserMenuOpen(false); }}>📜 Nhật ký hoạt động</button>
+                  <div style={{ borderTop: "1px solid var(--line)", margin: "4px 0" }} />
+                  <button style={{ color: "var(--red)" }} onClick={() => { showNotice("Mô phỏng đăng xuất thành công"); setUserMenuOpen(false); }}>🚪 Đăng xuất</button>
+                </div>
+              )}
+            </div>
+          </div>
+        </header>
         <main className="main compact-main">
           {notice && <div className="toast"><span>✓</span>{notice}</div>}
 
           {activeNav === "Grants" || activeNav === "Connections" ? (
             <AnalyticsPanel tab="Connection" search={search} onSearch={setSearch} timeFilter={timeFilter} onTimeFilter={setTimeFilter} page={page} setPage={setPage} pageSize={pageSize} setPageSize={setPageSize} showNotice={showNotice} />
           ) : activeNav === "Usage" ? (
-            <>
-              {usageView === "Total" ? <UsageTotal onSelectTab={tab => { setUsageView(tab); setAnalyticsTab(tab); setPage(1); }} showNotice={showNotice} /> : <AnalyticsPanel tab={analyticsTab} search={search} onSearch={setSearch} timeFilter={timeFilter} onTimeFilter={setTimeFilter} page={page} setPage={setPage} pageSize={pageSize} setPageSize={setPageSize} showNotice={showNotice} />}
-            </>
-          ) : activeNav === "Tổng quan" ? <OnboardingScreen onNavigate={setActiveNav} showNotice={showNotice} /> : activeNav === "Logs" ? <LogsScreen showNotice={showNotice} /> : isDeveloperPage ? <DeveloperSettings page={activeNav as "API keys" | "API" | "Webhooks"} showNotice={showNotice} /> : <DataScreen data={screenData[activeNav]} showNotice={showNotice} />}
+            <AnalyticsPanel tab={analyticsTab} search={search} onSearch={setSearch} timeFilter={timeFilter} onTimeFilter={setTimeFilter} page={page} setPage={setPage} pageSize={pageSize} setPageSize={setPageSize} showNotice={showNotice} />
+          ) : activeNav === "Billing" ? (
+            <UsageTotal onSelectTab={tab => { if (tab === "Connection") { setActiveNav("Grants"); setAnalyticsTab("Connection"); } else { setActiveNav("Usage"); setUsageExpanded(true); setUsageView(tab); setAnalyticsTab(tab); } setPage(1); }} showNotice={showNotice} />
+          ) : activeNav === "Tổng quan" ? (
+            <OnboardingScreen enabledScopes={enabledScopes} setEnabledScopes={setEnabledScopes} onNavigate={setActiveNav} showNotice={showNotice} />
+          ) : activeNav === "Userguide" ? (
+            <UserguideScreen enabledScopes={enabledScopes} showNotice={showNotice} onRunTest={runTestApiCall} />
+          ) : activeNav === "Logs" ? (
+            <LogsScreen logRecordsData={logRecordsState} showNotice={showNotice} />
+          ) : isDeveloperPage ? (
+            <DeveloperSettings page={activeNav as "API keys" | "Direct URL" | "Webhooks"} showNotice={showNotice} />
+          ) : (
+            <DataScreen data={screenData[activeNav]} showNotice={showNotice} />
+          )}
         </main>
       </div>
       {mobileMenu && <button className="backdrop" onClick={() => setMobileMenu(false)} />}
+      
+      {/* Quick Search / Command Palette Modal */}
+      {searchModalOpen && (
+        <div className="search-modal-backdrop" onClick={() => setSearchModalOpen(false)}>
+          <div className="search-modal" onClick={e => e.stopPropagation()}>
+            <div className="search-modal-input-row">
+              <span>⌕</span>
+              <input
+                type="text"
+                autoFocus
+                placeholder="Tìm kiếm nhanh danh mục, tính năng, hoặc trợ giúp..."
+                value={searchModalQuery}
+                onChange={e => setSearchModalQuery(e.target.value)}
+              />
+              <button style={{ border: 0, background: "transparent", cursor: "pointer", color: "var(--muted)" }} onClick={() => setSearchModalOpen(false)}>Esc</button>
+            </div>
+            <div className="search-modal-results">
+              {[
+                { title: "Tổng quan", desc: "Trang chủ & Thống kê tổng hợp", nav: "Tổng quan" },
+                { title: "Giao dịch (Usage)", desc: "Nhật ký gọi API & Thống kê sản lượng", nav: "Usage" },
+                { title: "Billing & Hoá đơn", desc: "Quản lý chi phí, thanh toán & e-Invoice VAT", nav: "Billing" },
+                { title: "Grants & Kết nối", desc: "Quản lý danh sách kết nối ngân hàng", nav: "Grants" },
+                { title: "API Keys", desc: "Quản lý Secret Keys & Client Credentials", nav: "API keys" },
+                { title: "Webhooks", desc: "Cấu hình Webhook & retry log", nav: "Webhooks" },
+                { title: "Logs hệ thống", desc: "Xem chi tiết Request/Response payload", nav: "Logs" },
+              ]
+              .filter(item => item.title.toLowerCase().includes(searchModalQuery.toLowerCase()) || item.desc.toLowerCase().includes(searchModalQuery.toLowerCase()))
+              .map(item => (
+                <button
+                  key={item.title}
+                  className="search-modal-item"
+                  onClick={() => {
+                    setActiveNav(item.nav);
+                    setSearchModalOpen(false);
+                  }}
+                >
+                  <div>
+                    <strong>{item.title}</strong>
+                    <small>{item.desc}</small>
+                  </div>
+                  <span style={{ fontSize: 13, color: "var(--purple)", fontWeight: 600 }}>Di chuyển →</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -699,6 +1242,84 @@ function UsageTotal({ onSelectTab, showNotice }: { onSelectTab?: (tab: Analytics
   const [paymentState, setPaymentState] = useState<"unpaid" | "scanning" | "paid">("unpaid");
   const [wantEinvoice, setWantEinvoice] = useState(true);
   const [showInvoiceModal, setShowInvoiceModal] = useState(false);
+  const [showHistoryModal, setShowHistoryModal] = useState(false);
+
+  const historyCycles = [
+    {
+      cycle: "Tháng 06/2026",
+      total: "₫330,420,000",
+      subtotal: "₫300,381,818",
+      vat: "₫30,038,182",
+      status: "Đã thanh toán",
+      date: "02/07/2026",
+      invoice: true,
+      items: [
+        { name: "Grant Connection", quantity: "2.500", unit: "connections", price: "Miễn phí", cost: "₫0" },
+        { name: "Transaction", quantity: "380.000", unit: "calls", price: "30.000đ/1.000 API calls", cost: "₫16.900.000" },
+        { name: "QR Pay", quantity: "120.000", unit: "GD thành công", price: "50đ + 0.3% / GD", cost: "₫13.000.000" },
+        { name: "Virtual Account", quantity: "1.400", unit: "VA hoạt động", price: "1.000đ / VA", cost: "₫1.400.000" },
+        { name: "Balance Hook", quantity: "250.000", unit: "thông báo", price: "300đ / thông báo", cost: "₫75.000.000" },
+        { name: "Transfer", quantity: "95.000", unit: "GD thành công", price: "2.000đ / GD", cost: "₫190,000,000" },
+        { name: "Deeplink", quantity: "40.818", unit: "lượt", price: "100đ / lượt", cost: "₫4,081,818" },
+      ]
+    },
+    {
+      cycle: "Tháng 05/2026",
+      total: "₫315,100,000",
+      subtotal: "₫286,454,545",
+      vat: "₫28,645,455",
+      status: "Đã thanh toán",
+      date: "04/06/2026",
+      invoice: true,
+      items: [
+        { name: "Grant Connection", quantity: "2.100", unit: "connections", price: "Miễn phí", cost: "₫0" },
+        { name: "Transaction", quantity: "350.000", unit: "calls", price: "30.000đ/1.000 API calls", cost: "₫15.500.000" },
+        { name: "QR Pay", quantity: "110.000", unit: "GD thành công", price: "50đ + 0.3% / GD", cost: "₫11.500.000" },
+        { name: "Virtual Account", quantity: "1.300", unit: "VA hoạt động", price: "1.000đ / VA", cost: "₫1.300.000" },
+        { name: "Balance Hook", quantity: "240.000", unit: "thông báo", price: "300đ / thông báo", cost: "₫72.000.000" },
+        { name: "Transfer", quantity: "91.000", unit: "GD thành công", price: "2.000đ / GD", cost: "₫182,000,000" },
+        { name: "Deeplink", quantity: "41.545", unit: "lượt", price: "100đ / lượt", cost: "₫4,154,545" },
+      ]
+    },
+    {
+      cycle: "Tháng 04/2026",
+      total: "₫290,000,000",
+      subtotal: "₫263,636,364",
+      vat: "₫26,363,636",
+      status: "Đã thanh toán",
+      date: "05/05/2026",
+      invoice: false,
+      items: [
+        { name: "Grant Connection", quantity: "1.900", unit: "connections", price: "Miễn phí", cost: "₫0" },
+        { name: "Transaction", quantity: "310.000", unit: "calls", price: "30.000đ/1.000 API calls", cost: "₫13.800.000" },
+        { name: "QR Pay", quantity: "95.000", unit: "GD thành công", price: "50đ + 0.3% / GD", cost: "₫9.900.000" },
+        { name: "Virtual Account", quantity: "1.100", unit: "VA hoạt động", price: "1.000đ / VA", cost: "₫1.100.000" },
+        { name: "Balance Hook", quantity: "220.000", unit: "thông báo", price: "300đ / thông báo", cost: "₫66.000.000" },
+        { name: "Transfer", quantity: "85.000", unit: "GD thành công", price: "2.000đ / GD", cost: "₫170,000,000" },
+        { name: "Deeplink", quantity: "28.363", unit: "lượt", price: "100đ / lượt", cost: "₫2,836,364" },
+      ]
+    },
+    {
+      cycle: "Tháng 03/2026",
+      total: "₫275,500,000",
+      subtotal: "₫250,454,545",
+      vat: "₫25,045,455",
+      status: "Đã thanh toán",
+      date: "02/04/2026",
+      invoice: true,
+      items: [
+        { name: "Grant Connection", quantity: "1.800", unit: "connections", price: "Miễn phí", cost: "₫0" },
+        { name: "Transaction", quantity: "280.000", unit: "calls", price: "30.000đ/1.000 API calls", cost: "₫12.400.000" },
+        { name: "QR Pay", quantity: "90.000", unit: "GD thành công", price: "50đ + 0.3% / GD", cost: "₫9.200.000" },
+        { name: "Virtual Account", quantity: "1.000", unit: "VA hoạt động", price: "1.000đ / VA", cost: "₫1.000.000" },
+        { name: "Balance Hook", quantity: "210.000", unit: "thông báo", price: "300đ / thông báo", cost: "₫63.000.000" },
+        { name: "Transfer", quantity: "81.000", unit: "GD thành công", price: "2.000đ / GD", cost: "₫162,000,000" },
+        { name: "Deeplink", quantity: "28.545", unit: "lượt", price: "100đ / lượt", cost: "₫2,854,545" },
+      ]
+    },
+  ];
+
+  const [selectedHistoryCycle, setSelectedHistoryCycle] = useState<typeof historyCycles[0] | null>(null);
 
   const [einvoiceCompany, setEinvoiceCompany] = useState("Công ty CP VietFin Digital");
   const [einvoiceTaxId, setEinvoiceTaxId] = useState("0317849201");
@@ -706,74 +1327,150 @@ function UsageTotal({ onSelectTab, showNotice }: { onSelectTab?: (tab: Analytics
   const [einvoiceAddress, setEinvoiceAddress] = useState("Tầng 12, Tòa nhà VietFin, 180 Nguyễn Thị Minh Khai, Q.3, TP.HCM");
   const [einvoiceNote, setEinvoiceNote] = useState("Xuất HĐĐT kỳ 07/2026 cho HĐ CAS-2026-07");
 
-  const billingItems: { tab: AnalyticsTab; name: string; volume: string; rate: string; cost: string }[] = [
-    { tab: "Connection", name: "Grant Connection", volume: "2.847 connections", rate: "Miễn phí", cost: "₫0" },
-    { tab: "Transaction", name: "Transaction", volume: "62 grant · 426.800 calls", rate: "100.000đ/grant + 30.000đ/1.000 API calls", cost: "₫19.004.000" },
-    { tab: "QRPay", name: "QR Pay", volume: "132.400 GD thành công", rate: "50đ + 0.3% / GD (max 2.000đ)", cost: "₫14.280.000" },
-    { tab: "VirtualAccount", name: "Virtual Account", volume: "1.520 VA hoạt động", rate: "1.000đ / VA hoạt động", cost: "₫1.520.000" },
-    { tab: "BalanceHook", name: "Balance Hook", volume: "280.900 thông báo", rate: "300đ / thông báo thành công", cost: "₫84.270.000" },
-    { tab: "Transfer", name: "Transfer", volume: "107.800 GD thành công", rate: "2.000đ / GD thành công", cost: "₫215.600.000" },
+  const billingItems = [
+    { tab: "Connection" as const, name: "Grant scope (Connection)", quantity: "2.847", unit: "lần", price: "0đ", cost: "₫0" },
+    { tab: "Transaction" as const, name: "Transaction scope", quantity: "62", unit: "lần", price: "100.000đ", cost: "₫6.200.000" },
+    { tab: "Transaction" as const, name: "Transaction Request", quantity: "426.800", unit: "lần", price: "30đ", cost: "₫12.804.000" },
+    { tab: "QRPay" as const, name: "QR Pay Transaction", quantity: "132.400", unit: "lần", price: "50đ + 0.3%", cost: "₫14.280.000" },
+    { tab: "VirtualAccount" as const, name: "Virtual Account Active", quantity: "1.520", unit: "tài khoản", price: "1.000đ", cost: "₫1.520.000" },
+    { tab: "BalanceHook" as const, name: "Balance Hook notification", quantity: "280.900", unit: "lần", price: "300đ", cost: "₫84.270.000" },
+    { tab: "Transfer" as const, name: "Transfer Transaction", quantity: "107.800", unit: "lần", price: "2.000đ", cost: "₫215.600.000" },
+    { tab: "Deeplink" as const, name: "Deeplink request", quantity: "115.400", unit: "lần", price: "100đ", cost: "₫11.540.000" },
   ];
 
-  return <div className="usage-total">
-    <section className="total-billing-layout">
-      <div className="panel billing-breakdown">
-        <div className="total-section-heading"><div><h2>Chi phí theo dịch vụ</h2><p>Kỳ sử dụng 01/07–31/07/2026 · Gói Vendor (Sàn 13.237.500 VNĐ)</p></div><select aria-label="Kỳ thanh toán"><option>Tháng 07/2026</option><option>Tháng 06/2026</option><option>Tháng 05/2026</option></select></div>
-        <table>
-          <thead><tr><th>Dịch vụ</th><th>Sản lượng</th><th>Đơn giá</th><th>Thành tiền</th></tr></thead>
+  return <div className="usage-total" style={{ padding: "8px 0" }}>
+    <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) 340px", gap: "20px", alignItems: "start", width: "100%" }}>
+      {/* Left Panel: Invoice Breakdown Table */}
+      <div className="panel" style={{ padding: "28px 32px", background: "white", borderRadius: "12px", border: "1px solid var(--border-color)", boxShadow: "0 2px 12px rgba(0,0,0,0.03)" }}>
+        {/* Heading */}
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "20px", paddingBottom: "16px", borderBottom: "1px solid var(--border-color)" }}>
+          <div>
+            <h2 style={{ margin: 0, fontSize: "20px", fontWeight: 700, color: "var(--text-color)" }}>Chi phí theo dịch vụ</h2>
+            <div style={{ fontSize: "14px", color: "var(--muted)", marginTop: "4px" }}>
+              Kỳ sử dụng: <strong style={{ color: "var(--text-color)" }}>Tháng 07/2026</strong> (01/07/2026 – 31/07/2026) · Gói Vendor
+            </div>
+          </div>
+          <div style={{ textAlign: "right" }}>
+            <div style={{ fontSize: "14px", color: "var(--muted)" }}>Mã hóa đơn: <strong style={{ color: "var(--text-color)" }}>CAS-2026-07-001</strong></div>
+          </div>
+        </div>
+
+        {/* Table */}
+        <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left" }} className="billing-breakdown">
+          <thead>
+            <tr style={{ background: "var(--bg-card)", borderBottom: "1px solid var(--border-color)" }}>
+              <th style={{ padding: "12px 14px", fontWeight: 600, fontSize: "13px", color: "var(--muted)", textTransform: "uppercase", textAlign: "left" }}>Tên dịch vụ</th>
+              <th style={{ padding: "12px 14px", fontWeight: 600, fontSize: "13px", color: "var(--muted)", textTransform: "uppercase", textAlign: "right" }}>Số lượng</th>
+              <th style={{ padding: "12px 14px", fontWeight: 600, fontSize: "13px", color: "var(--muted)", textTransform: "uppercase", textAlign: "right" }}>Đơn vị tính</th>
+              <th style={{ padding: "12px 14px", fontWeight: 600, fontSize: "13px", color: "var(--muted)", textTransform: "uppercase", textAlign: "right" }}>Đơn giá</th>
+              <th style={{ padding: "12px 14px", fontWeight: 600, fontSize: "13px", color: "var(--muted)", textTransform: "uppercase", textAlign: "right" }}>Tổng tiền</th>
+            </tr>
+          </thead>
           <tbody>
-            {billingItems.map(item => (
-              <tr key={item.name} style={{ cursor: "pointer" }} onClick={() => onSelectTab?.(item.tab)}>
-                <td><strong>{item.name}</strong></td>
-                <td>{item.volume}</td>
-                <td>{item.rate}</td>
-                <td><strong>{item.cost}</strong></td>
+            {billingItems.map((item, idx) => (
+              <tr key={idx} style={{ borderBottom: "1px solid var(--border-color)" }}>
+                <td style={{ padding: "12px 14px", textAlign: "left" }}>
+                  <strong style={{ color: "var(--text-color)" }}>{item.name}</strong>
+                </td>
+                <td style={{ padding: "12px 14px", textAlign: "right" }}>{item.quantity}</td>
+                <td style={{ padding: "12px 14px", textAlign: "right", color: "var(--muted)" }}>{item.unit}</td>
+                <td style={{ padding: "12px 14px", textAlign: "right", color: "var(--muted)" }}>{item.price}</td>
+                <td style={{ padding: "12px 14px", textAlign: "right" }}><strong>{item.cost}</strong></td>
               </tr>
             ))}
+            
+            {/* Totals inside table */}
+            <tr style={{ borderTop: "2px solid var(--border-color)", background: "rgba(0,0,0,0.01)" }}>
+              <td colSpan={3} style={{ padding: "12px 14px" }}></td>
+              <td style={{ padding: "12px 14px", textAlign: "right", color: "var(--muted)", fontWeight: 500, fontSize: "14px" }}>Tạm tính:</td>
+              <td style={{ padding: "12px 14px", textAlign: "right", fontWeight: 600, fontSize: "15px" }}>₫346,214,000</td>
+            </tr>
+            <tr style={{ background: "rgba(0,0,0,0.01)" }}>
+              <td colSpan={3} style={{ padding: "12px 14px" }}></td>
+              <td style={{ padding: "12px 14px", textAlign: "right", color: "var(--muted)", fontWeight: 500, fontSize: "14px" }}>Thuế VAT (10%):</td>
+              <td style={{ padding: "12px 14px", textAlign: "right", fontWeight: 600, fontSize: "15px" }}>₫34,621,400</td>
+            </tr>
+            <tr style={{ background: "rgba(0,0,0,0.03)", borderTop: "1px solid var(--border-color)" }}>
+              <td colSpan={3} style={{ padding: "12px 14px" }}></td>
+              <td style={{ padding: "12px 14px", textAlign: "right", fontWeight: 700, fontSize: "15px" }}>Tổng cộng:</td>
+              <td style={{ padding: "12px 14px", textAlign: "right", fontWeight: 700, color: "var(--purple)", fontSize: "18px" }}>₫380,835,400</td>
+            </tr>
           </tbody>
         </table>
       </div>
-      <aside className="panel invoice-summary">
-        <div className="invoice-status-line"><span className="invoice-label">KỲ THANH TOÁN</span><span className={`invoice-payment-status ${paymentState}`}>{paymentState === "paid" ? "Đã thanh toán" : "Chưa thanh toán"}</span></div>
-        <h2>Tháng 07/2026</h2>
-        <dl>
-          <div><dt>Tạm tính</dt><dd>₫334,674,000</dd></div>
-          <div><dt>Thuế VAT (10%)</dt><dd>₫33,467,400</dd></div>
-          <div className="invoice-total"><dt>Tổng thanh toán</dt><dd>₫368,141,400</dd></div>
+
+      {/* Right Sticky Summary Card */}
+      <div className="panel invoice-summary" style={{ padding: "24px", background: "white", borderRadius: "12px", border: "1px solid var(--border-color)", boxShadow: "0 2px 12px rgba(0,0,0,0.03)", position: "sticky", top: "16px" }}>
+        <div className="invoice-status-line" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
+          <span className="invoice-label" style={{ fontSize: "13px", fontWeight: 600, color: "var(--muted)", textTransform: "uppercase" }}>KỲ THANH TOÁN</span>
+          <span className={`invoice-payment-status ${paymentState}`} style={{ display: "inline-flex", alignItems: "center", gap: "4px", fontSize: "13px", fontWeight: 600, color: paymentState === "paid" ? "#10b981" : "#d97706", background: paymentState === "paid" ? "rgba(16,185,129,0.1)" : "rgba(217,119,6,0.1)", padding: "3px 10px", borderRadius: "12px" }}>
+            <i style={{ width: "6px", height: "6px", borderRadius: "50%", background: "currentColor" }} />
+            {paymentState === "paid" ? "Đã thanh toán" : "Chưa thanh toán"}
+          </span>
+        </div>
+        <h2 style={{ fontSize: "22px", fontWeight: 700, margin: "4px 0 16px" }}>Tháng 07/2026</h2>
+        
+        <dl style={{ margin: "0 0 20px" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: "1px solid var(--border-color)", fontSize: "15px" }}>
+            <dt style={{ color: "var(--muted)" }}>Tạm tính</dt>
+            <dd style={{ margin: 0, fontWeight: 600 }}>₫346,214,000</dd>
+          </div>
+          <div style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: "1px solid var(--border-color)", fontSize: "15px" }}>
+            <dt style={{ color: "var(--muted)" }}>Thuế VAT (10%)</dt>
+            <dd style={{ margin: 0, fontWeight: 600 }}>₫34,621,400</dd>
+          </div>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 0 0", fontSize: "16px" }}>
+            <dt style={{ fontWeight: 700 }}>Tổng thanh toán</dt>
+            <dd style={{ margin: 0, fontSize: "22px", fontWeight: 700, color: "var(--purple)" }}>₫380,835,400</dd>
+          </div>
         </dl>
-        <div className="invoice-toggle-box">
-          <label className="invoice-checkbox-label">
+
+        {/* VAT Toggle Checkbox */}
+        <div style={{ background: "var(--bg-card)", padding: "12px 14px", borderRadius: "8px", border: "1px solid var(--border-color)", marginBottom: "18px" }}>
+          <label style={{ display: "flex", alignItems: "center", gap: "8px", cursor: "pointer", fontWeight: 500, margin: 0, fontSize: "14px" }}>
             <input type="checkbox" checked={wantEinvoice} onChange={e => {
               const checked = e.target.checked;
               setWantEinvoice(checked);
               if (checked) setShowInvoiceModal(true);
-            }} />
+            }} style={{ width: "15px", height: "15px" }} />
             <span>Xuất hóa đơn VAT điện tử (e-Invoice)</span>
           </label>
           {wantEinvoice && (
-            <div className="einvoice-summary-badge">
-              <div className="badge-text">
+            <div style={{ marginTop: "8px", paddingTop: "8px", borderTop: "1px dashed var(--border-color)", display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "13px" }}>
+              <div style={{ color: "var(--muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "210px" }}>
                 <strong>{einvoiceCompany}</strong>
-                <small>MST: {einvoiceTaxId} · {einvoiceEmail}</small>
               </div>
-              <button type="button" className="edit-invoice-btn" onClick={() => setShowInvoiceModal(true)}>Sửa</button>
+              <button type="button" style={{ border: "none", background: "none", color: "var(--purple)", cursor: "pointer", fontSize: "13px", fontWeight: 600, padding: 0 }} onClick={() => setShowInvoiceModal(true)}>
+                Sửa ✎
+              </button>
             </div>
           )}
         </div>
-        <p>{paymentState === "paid" ? `Thanh toán thành công lúc 10:24 27/07/2026. ${wantEinvoice ? `Hóa đơn đã gửi tới ${einvoiceEmail}` : "Giao dịch không yêu cầu HĐĐT."}` : wantEinvoice ? `Hóa đơn VAT sẽ được tự động gửi tới ${einvoiceEmail} ngay sau khi chuyển khoản.` : "Thanh toán trước ngày 01/08/2026."}</p>
-        {paymentState === "paid"
-          ? <button className="primary-button" onClick={() => showNotice(wantEinvoice ? `Đã xuất hoá đơn gửi tới ${einvoiceEmail}` : "Đã tải chứng từ thanh toán")}>{wantEinvoice ? "⇩ Tải hóa đơn VAT (.pdf)" : "⇩ Tải chứng từ thanh toán"}</button>
-          : <button className="primary-button payment-button" onClick={() => setPaymentState("scanning")}>Thanh toán ₫368,141,400</button>}
-        <button className="invoice-secondary" onClick={() => showNotice("Đã mở lịch sử thanh toán")}>Xem lịch sử thanh toán</button>
-      </aside>
-    </section>
+
+        {/* Actions */}
+        <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+          {paymentState === "paid" ? (
+            <button className="primary-button" onClick={() => showNotice(wantEinvoice ? `Đã tải hoá đơn điện tử gửi tới ${einvoiceEmail}` : "Đã tải chứng từ thanh toán")} style={{ width: "100%", height: "40px", padding: 0 }}>
+              {wantEinvoice ? "⇩ Tải hóa đơn VAT (.pdf)" : "⇩ Tải chứng từ thanh toán"}
+            </button>
+          ) : (
+            <button className="primary-button payment-button" onClick={() => setPaymentState("scanning")} style={{ width: "100%", height: "42px", padding: 0, background: "var(--purple)", fontWeight: 600, fontSize: "16px" }}>
+              Thanh toán
+            </button>
+          )}
+          <button className="invoice-secondary" onClick={() => setShowHistoryModal(true)} style={{ width: "100%", height: "38px", cursor: "pointer", fontSize: "14px", margin: 0 }}>
+            Xem lịch sử thanh toán
+          </button>
+        </div>
+      </div>
+    </div>
     {paymentState === "scanning" && <div className="payment-screen" role="dialog" aria-modal="true" aria-labelledby="payment-title">
       <div className="payment-modal">
         <div className="payment-heading"><div><span>THANH TOÁN HOÁ ĐƠN</span><h2 id="payment-title">Quét mã QR để thanh toán</h2></div><button aria-label="Đóng" onClick={() => setPaymentState("unpaid")}>×</button></div>
         <div className="payment-content">
           <div className="payment-qr"><div className="qr-noise"><i /><i /><i /></div><small>VIETQR</small></div>
           <div className="payment-info">
-            <span>SỐ TIỀN THANH TOÁN</span><strong>₫368,141,400</strong>
+            <span>SỐ TIỀN THANH TOÁN</span><strong>₫380,835,400</strong>
             <dl><div><dt>Ngân hàng</dt><dd>MB Bank</dd></div><div><dt>Người nhận</dt><dd>CAS VIETNAM JSC</dd></div><div><dt>Nội dung</dt><dd>CAS APP8F2 JUL2026</dd></div><div><dt>Hết hạn</dt><dd>14:59</dd></div></dl>
             {wantEinvoice && <div className="payment-einvoice-strip">
               <div>
@@ -823,6 +1520,140 @@ function UsageTotal({ onSelectTab, showNotice }: { onSelectTab?: (tab: Analytics
             <button type="button" className="invoice-cancel-btn" onClick={() => setShowInvoiceModal(false)}>Hủy</button>
             <button type="button" className="primary-button" onClick={() => { setShowInvoiceModal(false); showNotice("Đã lưu thông tin xuất hóa đơn VAT"); }}>Lưu thông tin hóa đơn</button>
           </div>
+        </div>
+      </div>
+    </div>}
+
+    {showHistoryModal && <div className="payment-screen" role="dialog" aria-modal="true" aria-labelledby="history-modal-title">
+      <div className="invoice-modal-dialog" style={{ width: "min(780px, 94vw)", maxHeight: "90vh", display: "flex", flexDirection: "column" }}>
+        <div className="payment-heading">
+          <div>
+            <span>BILLING & INVOICE</span>
+            <h2 id="history-modal-title">Lịch sử thanh toán</h2>
+            <p style={{ margin: "4px 0 0", fontSize: 14, color: "var(--muted)" }}>Chọn một kỳ thanh toán bên dưới để xem bảng kê chi tiết dịch vụ và tải hóa đơn.</p>
+          </div>
+          <button aria-label="Đóng" onClick={() => { setShowHistoryModal(false); setSelectedHistoryCycle(null); }}>×</button>
+        </div>
+        <div className="invoice-modal-body" style={{ padding: 0, display: "block", overflowY: "auto", flex: 1 }}>
+          {!selectedHistoryCycle ? (
+            <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left" }}>
+              <thead style={{ background: "var(--bg-card)", borderBottom: "1px solid var(--border-color)", position: "sticky", top: 0, zIndex: 1 }}>
+                <tr>
+                  <th style={{ padding: "16px 24px", fontWeight: 600, fontSize: 14, color: "var(--muted)" }}>Kỳ thanh toán</th>
+                  <th style={{ padding: "16px 24px", fontWeight: 600, fontSize: 14, color: "var(--muted)" }}>Tổng tiền</th>
+                  <th style={{ padding: "16px 24px", fontWeight: 600, fontSize: 14, color: "var(--muted)" }}>Trạng thái</th>
+                  <th style={{ padding: "16px 24px", fontWeight: 600, fontSize: 14, color: "var(--muted)" }}>Hóa đơn VAT</th>
+                  <th style={{ padding: "16px 24px", fontWeight: 600, fontSize: 14, color: "var(--muted)", textAlign: "right" }}>Thao tác</th>
+                </tr>
+              </thead>
+              <tbody>
+                {historyCycles.map(cycle => (
+                  <tr key={cycle.cycle} style={{ borderBottom: "1px solid var(--border-color)", cursor: "pointer", transition: "background 0.2s" }} onClick={() => setSelectedHistoryCycle(cycle)} onMouseEnter={e => (e.currentTarget.style.background = "var(--bg-card)")} onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>
+                    <td style={{ padding: "16px 24px" }}>
+                      <div style={{ display: "flex", flexDirection: "column" }}>
+                        <span style={{ fontWeight: 600, color: "var(--text-color)" }}>{cycle.cycle}</span>
+                        <span style={{ fontSize: 13, color: "var(--muted)" }}>Mã HD: CAS-{cycle.cycle.replace("Tháng ", "").replace("/", "-")}</span>
+                      </div>
+                    </td>
+                    <td style={{ padding: "16px 24px", fontWeight: 600, color: "var(--text-color)" }}>{cycle.total}</td>
+                    <td style={{ padding: "16px 24px" }}>
+                      <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 500, color: "#10b981", background: "rgba(16,185,129,0.1)", padding: "4px 10px", borderRadius: 20 }}>
+                        <i style={{ width: 6, height: 6, borderRadius: "50%", background: "currentColor" }} /> {cycle.status}
+                      </span>
+                      <div style={{ fontSize: 13, color: "var(--muted)", marginTop: 4 }}>vào {cycle.date}</div>
+                    </td>
+                    <td style={{ padding: "16px 24px", color: cycle.invoice ? "var(--purple)" : "var(--muted)", fontSize: 15, fontWeight: 500 }}>
+                      {cycle.invoice ? "✓ Đã xuất HĐĐT" : "Không yêu cầu"}
+                    </td>
+                    <td style={{ padding: "16px 24px", textAlign: "right" }}>
+                      <span className="invoice-secondary" style={{ padding: "6px 12px", fontSize: 14, display: "inline-block", borderRadius: 4, fontWeight: 500 }}>Xem chi tiết →</span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ) : (
+            <div style={{ padding: 24 }}>
+              <button style={{ background: "transparent", border: "none", color: "var(--purple)", cursor: "pointer", display: "flex", alignItems: "center", gap: 8, fontSize: 16, marginBottom: 20, padding: 0, fontWeight: 600 }} onClick={() => setSelectedHistoryCycle(null)}>
+                ← Quay lại danh sách lịch sử
+              </button>
+              
+              <div style={{ display: "flex", justifyContent: "between", alignItems: "center", marginBottom: 20 }}>
+                <h3 style={{ fontSize: 22, margin: 0 }}>Chi tiết thanh toán {selectedHistoryCycle.cycle}</h3>
+                <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 14, fontWeight: 600, color: "#10b981", background: "rgba(16,185,129,0.1)", padding: "6px 12px", borderRadius: 20 }}>
+                  <i style={{ width: 6, height: 6, borderRadius: "50%", background: "currentColor" }} /> {selectedHistoryCycle.status}
+                </span>
+              </div>
+
+              <dl style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "20px 40px", background: "var(--bg-card)", padding: 24, borderRadius: 12, marginBottom: 24, border: "1px solid var(--border-color)" }}>
+                <div><dt style={{ fontSize: 14, color: "var(--muted)", marginBottom: 4, textTransform: "uppercase", fontWeight: 600 }}>Tổng tiền thanh toán</dt><dd style={{ fontSize: 26, fontWeight: 700, margin: 0, color: "var(--text-color)" }}>{selectedHistoryCycle.total}</dd></div>
+                <div><dt style={{ fontSize: 14, color: "var(--muted)", marginBottom: 4, textTransform: "uppercase", fontWeight: 600 }}>Thời gian thanh toán</dt><dd style={{ fontSize: 17, fontWeight: 500, margin: 0 }}>10:24 {selectedHistoryCycle.date}</dd></div>
+                <div><dt style={{ fontSize: 14, color: "var(--muted)", marginBottom: 4, textTransform: "uppercase", fontWeight: 600 }}>Phương thức</dt><dd style={{ fontSize: 17, fontWeight: 500, margin: 0 }}>Chuyển khoản VietQR (MB Bank)</dd></div>
+                <div><dt style={{ fontSize: 14, color: "var(--muted)", marginBottom: 4, textTransform: "uppercase", fontWeight: 600 }}>Mã giao dịch</dt><dd style={{ fontSize: 17, fontWeight: 500, margin: 0, fontFamily: "monospace" }}>FT26{selectedHistoryCycle.cycle.replace("Tháng ", "").replace("/", "")}8F7A</dd></div>
+              </dl>
+
+              <h4 style={{ fontSize: 16, marginBottom: 12, textTransform: "uppercase", fontWeight: 600, color: "var(--muted)" }}>Bảng kê chi tiết dịch vụ</h4>
+              <div style={{ background: "var(--bg-card)", borderRadius: 12, border: "1px solid var(--border-color)", overflow: "hidden", marginBottom: 24 }}>
+                <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left", fontSize: 13 }}>
+                  <thead style={{ background: "rgba(0,0,0,0.02)", borderBottom: "1px solid var(--border-color)" }}>
+                    <tr>
+                      <th style={{ padding: "12px 16px", fontWeight: 600, color: "var(--muted)", textAlign: "left" }}>Tên dịch vụ</th>
+                      <th style={{ padding: "12px 16px", fontWeight: 600, color: "var(--muted)", textAlign: "right" }}>Số lượng</th>
+                      <th style={{ padding: "12px 16px", fontWeight: 600, color: "var(--muted)", textAlign: "right" }}>Đơn vị tính</th>
+                      <th style={{ padding: "12px 16px", fontWeight: 600, color: "var(--muted)", textAlign: "right" }}>Đơn giá</th>
+                      <th style={{ padding: "12px 16px", fontWeight: 600, color: "var(--muted)", textAlign: "right" }}>Tổng tiền</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {selectedHistoryCycle.items.map((item, idx) => (
+                      <tr key={idx} style={{ borderBottom: idx === selectedHistoryCycle.items.length - 1 ? "none" : "1px solid var(--border-color)" }}>
+                        <td style={{ padding: "12px 16px", fontWeight: 600 }}>{item.name}</td>
+                        <td style={{ padding: "12px 16px", textAlign: "right" }}>{item.quantity}</td>
+                        <td style={{ padding: "12px 16px", textAlign: "right", color: "var(--muted)" }}>{item.unit}</td>
+                        <td style={{ padding: "12px 16px", textAlign: "right", color: "var(--muted)" }}>{item.price}</td>
+                        <td style={{ padding: "12px 16px", fontWeight: 600, color: "var(--text-color)", textAlign: "right" }}>{item.cost}</td>
+                      </tr>
+                    ))}
+                    <tr style={{ borderTop: "2px solid var(--border-color)", background: "rgba(0,0,0,0.01)" }}>
+                      <td colSpan={3} style={{ padding: "12px 16px" }}></td>
+                      <td style={{ padding: "12px 16px", textAlign: "right", color: "var(--muted)", fontWeight: 500 }}>Tạm tính:</td>
+                      <td style={{ padding: "12px 16px", textAlign: "right", fontWeight: 600 }}>{selectedHistoryCycle.subtotal}</td>
+                    </tr>
+                    <tr style={{ background: "rgba(0,0,0,0.01)" }}>
+                      <td colSpan={3} style={{ padding: "12px 16px" }}></td>
+                      <td style={{ padding: "12px 16px", textAlign: "right", color: "var(--muted)", fontWeight: 500 }}>Thuế VAT (10%):</td>
+                      <td style={{ padding: "12px 16px", textAlign: "right", fontWeight: 600 }}>{selectedHistoryCycle.vat}</td>
+                    </tr>
+                    <tr style={{ background: "rgba(0,0,0,0.03)", borderTop: "1px solid var(--border-color)" }}>
+                      <td colSpan={3} style={{ padding: "12px 16px" }}></td>
+                      <td style={{ padding: "12px 16px", textAlign: "right", fontWeight: 700 }}>Tổng cộng:</td>
+                      <td style={{ padding: "12px 16px", textAlign: "right", fontWeight: 700, color: "var(--purple)", fontSize: 15 }}>{selectedHistoryCycle.total}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+
+              <h4 style={{ fontSize: 16, marginBottom: 12, textTransform: "uppercase", fontWeight: 600, color: "var(--muted)" }}>Thông tin e-Invoice</h4>
+              <div style={{ background: "var(--bg-card)", padding: 20, borderRadius: 12, border: "1px solid var(--border-color)", fontSize: 15, lineHeight: 1.6, marginBottom: 24 }}>
+                {selectedHistoryCycle.invoice ? (
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px 24px" }}>
+                    <div><strong style={{ color: "var(--muted)" }}>Đơn vị mua:</strong> <div style={{ fontWeight: 500, marginTop: 2 }}>{einvoiceCompany}</div></div>
+                    <div><strong style={{ color: "var(--muted)" }}>Mã số thuế:</strong> <div style={{ fontWeight: 500, marginTop: 2 }}>{einvoiceTaxId}</div></div>
+                    <div><strong style={{ color: "var(--muted)" }}>Địa chỉ:</strong> <div style={{ fontWeight: 500, marginTop: 2 }}>{einvoiceAddress}</div></div>
+                    <div><strong style={{ color: "var(--muted)" }}>Email nhận:</strong> <div style={{ fontWeight: 500, marginTop: 2 }}>{einvoiceEmail}</div></div>
+                  </div>
+                ) : (
+                  <div style={{ color: "var(--muted)", fontStyle: "italic" }}>Giao dịch thanh toán không yêu cầu xuất hóa đơn VAT điện tử.</div>
+                )}
+              </div>
+
+              <div style={{ display: "flex", gap: 12, justifyContent: "flex-end", borderTop: "1px solid var(--border-color)", paddingTop: 20 }}>
+                <button className="invoice-secondary" onClick={() => setSelectedHistoryCycle(null)}>Quay lại</button>
+                <button className="primary-button" onClick={() => showNotice("Đã tải chứng từ thanh toán")}>⇩ Tải chứng từ thanh toán (PDF)</button>
+                {selectedHistoryCycle.invoice && <button className="primary-button" style={{ background: "var(--purple)" }} onClick={() => showNotice("Đã tải hóa đơn điện tử e-Invoice VAT (.pdf)")}>⇩ Tải Hóa đơn điện tử VAT (.pdf)</button>}
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>}
@@ -972,7 +1803,7 @@ function UsageRecordsTable({ tab, search, onSearch, timeFilter, onTimeFilter, pa
   </div>;
 }
 
-function LogsScreen({ showNotice }: { showNotice: (message: string) => void }) {
+function LogsScreen({ logRecordsData, showNotice }: { logRecordsData: LogRecord[]; showNotice: (message: string) => void }) {
   const [query, setQuery] = useState("");
   const [route, setRoute] = useState("Tất cả API routes");
   const [responseCode, setResponseCode] = useState("Tất cả response");
@@ -982,7 +1813,7 @@ function LogsScreen({ showNotice }: { showNotice: (message: string) => void }) {
   const [detailTab, setDetailTab] = useState<"request" | "response">("request");
   const [page, setPage] = useState(1);
 
-  const filtered = logRecords.filter(log => {
+  const filtered = logRecordsData.filter(log => {
     const searchText = `${log.requestId} ${log.grantId} ${log.endpoint} ${log.bank} ${log.scope}`.toLowerCase();
     return searchText.includes(query.toLowerCase())
       && (route === "Tất cả API routes" || log.endpoint === route)
@@ -1023,10 +1854,10 @@ function LogsScreen({ showNotice }: { showNotice: (message: string) => void }) {
     </div>
     <div className="logs-filter-row">
       <div>
-        <select value={route} onChange={e => { setRoute(e.target.value); setPage(1); }} aria-label="API routes"><option>Tất cả API routes</option>{[...new Set(logRecords.map(log => log.endpoint))].map(item => <option key={item}>{item}</option>)}</select>
+        <select value={route} onChange={e => { setRoute(e.target.value); setPage(1); }} aria-label="API routes"><option>Tất cả API routes</option>{[...new Set(logRecordsData.map(log => log.endpoint))].map(item => <option key={item}>{item}</option>)}</select>
         <select value={responseCode} onChange={e => { setResponseCode(e.target.value); setPage(1); }} aria-label="Response code"><option>Tất cả response</option><option>2xx Thành công</option><option>4xx / 5xx Lỗi</option></select>
         <select value={timeRange} onChange={e => setTimeRange(e.target.value)} aria-label="Thời gian"><option>24 giờ qua</option><option>7 ngày qua</option><option>30 ngày qua</option></select>
-        <select value={bank} onChange={e => { setBank(e.target.value); setPage(1); }} aria-label="Ngân hàng"><option>Tất cả ngân hàng</option>{[...new Set(logRecords.map(log => log.bank))].map(item => <option key={item}>{item}</option>)}</select>
+        <select value={bank} onChange={e => { setBank(e.target.value); setPage(1); }} aria-label="Ngân hàng"><option>Tất cả ngân hàng</option>{[...new Set(logRecordsData.map(log => log.bank))].map(item => <option key={item}>{item}</option>)}</select>
       </div>
       <button className="logs-reset" onClick={resetFilters}>↻ Đặt lại</button>
       <button className="logs-export" onClick={exportLogs}>⇩ Xuất logs</button>
@@ -1076,52 +1907,631 @@ function LogsScreen({ showNotice }: { showNotice: (message: string) => void }) {
   </section>;
 }
 
-function OnboardingScreen({ onNavigate, showNotice }: { onNavigate: (page: string) => void; showNotice: (message: string) => void }) {
-  const [activeStep, setActiveStep] = useState(1);
-  const steps = [
-    { title: "Lấy API credentials", note: "Client ID và Secret key", done: true },
-    { title: "Cấu hình callback URL", note: "URL nhận publicToken", done: true },
-    { title: "Tạo grantToken", note: "POST /grant/token", done: false },
-    { title: "Mở Cas Link", note: "End-user kết nối ngân hàng", done: false },
-    { title: "Đổi publicToken", note: "POST /grant/exchange", done: false },
-    { title: "Gọi API đầu tiên", note: "Theo scope của Grant", done: false },
+function OnboardingScreen({ enabledScopes, setEnabledScopes, onNavigate, showNotice }: { enabledScopes: AnalyticsTab[]; setEnabledScopes: React.Dispatch<React.SetStateAction<AnalyticsTab[]>>; onNavigate: (page: string) => void; showNotice: (message: string) => void }) {
+  const [draftScopes, setDraftScopes] = useState<AnalyticsTab[]>(enabledScopes);
+
+  const allServices: { key: AnalyticsTab; title: string; desc: string; price: string }[] = [
+    { key: "Transaction", title: "Transaction API", desc: "Lịch sử giao dịch & truy vấn sao kê ngân hàng", price: "50đ / call" },
+    { key: "QRPay", title: "QRPay API", desc: "Tạo & nhận thanh toán VietQR / Dynamic QR", price: "40đ / GD" },
+    { key: "Deeplink", title: "Deeplink API", desc: "Khởi tạo link gọi app ngân hàng thanh toán", price: "100đ / lượt" },
+    { key: "VirtualAccount", title: "Virtual Account", desc: "Tài khoản định danh thu hộ tự động", price: "1.000đ / VA" },
+    { key: "BalanceHook", title: "Balance Hook", desc: "Webhook thông báo biến động số dư realtime", price: "300đ / thông báo" },
+    { key: "Transfer", title: "Transfer API", desc: "Chuyển tiền nhanh 24/7 qua API", price: "2.000đ / GD" },
+    { key: "Identity", title: "Identity API", desc: "Truy vấn & xác thực chủ tài khoản ngân hàng", price: "60đ / call" },
+    { key: "Balance", title: "Balance API", desc: "Tra cứu số dư tài khoản ngân hàng tức thì", price: "35đ / call" },
+    { key: "eKYC", title: "eKYC Verification", desc: "Xác thực khuôn mặt & đọc thông tin CCCD", price: "80đ / lượt" },
+    { key: "Invoice", title: "Invoice API", desc: "Quản lý & tra cứu hoá đơn điện tử", price: "50đ / HĐ" },
   ];
 
-  const content = [
-    { title: "Lấy Client ID và Secret key", text: "Dùng credentials của App để xác thực request server-to-server. Bắt đầu bằng môi trường Sandbox.", code: "x-client-id: <CLIENT_ID>\nx-secret-key: <SECRET_KEY>", action: "Mở API keys", page: "API keys" },
-    { title: "Khai báo URL trả về", text: "Sau khi end-user liên kết thành công, Cas chuyển hướng về callback URL và trả publicToken tạm thời.", code: "https://app.bankhub.vn/cas/callback", action: "Cấu hình callback", page: "API" },
-    { title: "Tạo grantToken với scope cần dùng", text: "Chỉ yêu cầu các scope cần thiết. grantToken có hiệu lực 30 phút và chỉ dùng một lần.", code: "POST https://sandbox.bankhub.dev/grant/token\n\n{\n  \"scopes\": \"identity,transaction\",\n  \"language\": \"vi\",\n  \"redirectUri\": \"https://app.bankhub.vn/cas/callback\"\n}", action: "Đã hiểu, tiếp tục", page: "" },
-    { title: "Mở Cas Link cho end-user", text: "Truyền grantToken vào Cas Link. End-user chọn ngân hàng, đăng nhập và cấp quyền cho các scope đã yêu cầu.", code: "Cas Link → grantToken → publicToken", action: "Xem tài liệu Cas Link", page: "" },
-    { title: "Đổi publicToken lấy accessToken", text: "Thực hiện ở server. Response trả về accessToken và grantId; hãy lưu accessToken an toàn.", code: "POST https://sandbox.bankhub.dev/grant/exchange\n\n{\n  \"publicToken\": \"<PUBLIC_TOKEN>\"\n}", action: "Đã hiểu, tiếp tục", page: "" },
-    { title: "Gọi API thuộc scope của Grant", text: "Dùng accessToken để gọi endpoint tương ứng. Ví dụ dưới đây cần Grant có scope identity.", code: "GET https://sandbox.bankhub.dev/identity\nAuthorization: <ACCESS_TOKEN>\nx-client-id: <CLIENT_ID>\nx-secret-key: <SECRET_KEY>", action: "Đánh dấu hoàn tất", page: "" },
-  ][activeStep - 1];
+  function toggleScope(key: AnalyticsTab) {
+    if (draftScopes.includes(key)) {
+      if (draftScopes.length <= 1) {
+        showNotice("App cần giữ ít nhất 1 dịch vụ API");
+        return;
+      }
+      setDraftScopes(draftScopes.filter(k => k !== key));
+    } else {
+      setDraftScopes([...draftScopes, key]);
+    }
+  }
+
+  function handleSave() {
+    setEnabledScopes(draftScopes);
+    showNotice(`✓ Đã lưu thành công ${draftScopes.length} dịch vụ API! Sidebar Usage đã được cập nhật.`);
+  }
+
+  const isModified = JSON.stringify([...draftScopes].sort()) !== JSON.stringify([...enabledScopes].sort());
 
   return <div className="onboarding-layout">
     <section className="onboarding-welcome">
-      <div><span className="guide-eyebrow">QUICK START</span><h2>Gọi API Cas đầu tiên</h2><p>Đi từ credentials đến một Grant có thể gọi API trong khoảng vài bước.</p></div>
-      <a href="https://cas.so/quickstart/" target="_blank" rel="noreferrer">Mở tài liệu đầy đủ ↗</a>
+      <div><span className="guide-eyebrow">QUICK START</span><h2>Onboarding & Lựa chọn Dịch vụ API</h2><p>Chọn các dịch vụ Open Banking mà App muốn sử dụng. Bấm "Lưu danh sách dịch vụ" để cập nhật vào menu Usage.</p></div>
+      <FormButton variant="primary" size="md" onClick={() => onNavigate("Userguide")}>
+        Mở tài liệu API (Userguide) ↗
+      </FormButton>
     </section>
-    <div className="onboarding-progress"><div><span>Tiến độ tích hợp</span><strong>2 / 6 bước</strong></div><i><b style={{ width: "33.33%" }} /></i></div>
-    <section className="guide-shell">
-      <nav className="guide-steps" aria-label="Các bước tích hợp">
-        {steps.map((step, index) => <button className={activeStep === index + 1 ? "active" : ""} key={step.title} onClick={() => setActiveStep(index + 1)}><span className={step.done ? "done" : ""}>{step.done ? "✓" : index + 1}</span><div><strong>{step.title}</strong><small>{step.note}</small></div></button>)}
-      </nav>
-      <article className="guide-content">
-        <div className="guide-step-label">BƯỚC {activeStep} / 6</div>
-        <h3>{content.title}</h3>
-        <p>{content.text}</p>
-        <pre><code>{content.code}</code><button onClick={() => { navigator.clipboard?.writeText(content.code); showNotice("Đã sao chép đoạn mã"); }}>Sao chép</button></pre>
-        <div className="guide-actions">
-          {activeStep > 1 && <button onClick={() => setActiveStep(activeStep - 1)}>← Quay lại</button>}
-          <button className="guide-primary" onClick={() => content.page ? onNavigate(content.page) : activeStep < 6 ? setActiveStep(activeStep + 1) : showNotice("Onboarding đã hoàn tất")}>{content.action}</button>
+
+    {/* Scope Selector Section */}
+    <section className="scope-selector-section">
+      <div className="scope-selector-header">
+        <div>
+          <h3>Lựa chọn Dịch vụ API Onboarding ({draftScopes.length} / 10 đã chọn)</h3>
+          <p>Tích chọn dịch vụ cần dùng. Sau khi bấm "Lưu", menu Usage và tài liệu Hướng dẫn API (Userguide) sẽ hiển thị đúng danh sách đã chọn.</p>
         </div>
-      </article>
+        <FormButton
+          variant={isModified ? "primary" : "secondary"}
+          size="md"
+          onClick={handleSave}
+        >
+          {isModified ? "💾 Lưu danh sách dịch vụ (Chưa lưu)" : "✓ Đã lưu danh sách dịch vụ"}
+        </FormButton>
+      </div>
+      <div className="scope-grid">
+        {allServices.map(srv => {
+          const active = draftScopes.includes(srv.key);
+          return (
+            <div
+              key={srv.key}
+              className={`scope-card ${active ? "active" : ""}`}
+              onClick={() => toggleScope(srv.key)}
+            >
+              <div className="scope-card-top">
+                <strong>{srv.title}</strong>
+                <input
+                  type="checkbox"
+                  checked={active}
+                  onChange={() => toggleScope(srv.key)}
+                  className="scope-checkbox"
+                  onClick={e => e.stopPropagation()}
+                />
+              </div>
+              <div className="scope-card-desc">{srv.desc}</div>
+              <div className="scope-card-footer">
+                <span>{srv.price}</span>
+                <span style={{ color: active ? "var(--purple)" : "var(--muted)" }}>{active ? "✓ Đã chọn" : "+ Bấm để chọn"}</span>
+              </div>
+            </div>
+          );
+        })}
+      </div>
     </section>
-    <div className="sandbox-note"><span>i</span><div><strong>Nên bắt đầu với Sandbox</strong><p>Dùng endpoint <code>https://sandbox.bankhub.dev</code> và dữ liệu test trước khi chuyển sang Production.</p></div></div>
+
+    <div className="sandbox-note" style={{ marginTop: 20 }}><span>i</span><div><strong>Hướng dẫn Onboarding</strong><p>Sau khi chọn xong dịch vụ, bạn có thể chuyển sang mục <strong>Userguide</strong> ở menu bên trái để xem hướng dẫn tích hợp chi tiết và thử nghiệm Sandbox.</p></div></div>
   </div>;
 }
 
-function DeveloperSettings({ page, showNotice }: { page: "API keys" | "API" | "Webhooks"; showNotice: (message: string) => void }) {
+function UserguideScreen({
+  enabledScopes,
+  showNotice,
+  onRunTest
+}: {
+  enabledScopes: AnalyticsTab[];
+  showNotice: (message: string) => void;
+  onRunTest: (scope: AnalyticsTab, params: { bank: string; amount?: string; accountName?: string; note?: string }) => void;
+}) {
+  const activeList = enabledScopes.length > 0 ? enabledScopes : ["Transaction", "QRPay", "Deeplink"];
+  const [selectedCategory, setSelectedCategory] = useState<string>(activeList[0] || "Transaction");
+  const [selectedApiIndex, setSelectedApiIndex] = useState<number>(0);
+  const [activeStep, setActiveStep] = useState<number>(1);
+
+  const [testBank, setTestBank] = useState("Techcombank");
+  const [testAmount, setTestAmount] = useState("1500000");
+  const [testAccountName, setTestAccountName] = useState("Nguyễn Minh Anh");
+  const [testNote, setTestNote] = useState("Thanh toan don hang #10928");
+
+  type ServiceProductDoc = {
+    title: string;
+    desc: string;
+    scopeName: string;
+    flow: { step: string; title: string; desc: string }[];
+    apis: {
+      name: string;
+      method: "POST" | "GET" | "DELETE";
+      url: string;
+      scope: string;
+      summary: string;
+      headers?: { name: string; type: string; req: boolean; desc: string }[];
+      params: { name: string; type: string; req: boolean; desc: string }[];
+      sampleReq: string;
+      sampleRes: string;
+    }[];
+  };
+
+  const productDocs: Record<string, ServiceProductDoc> = {
+    Transaction: {
+      title: "Bank Account Transaction History API",
+      desc: "API truy vấn lịch sử giao dịch sao kê tự động cho tài khoản ngân hàng kết nối (chuẩn Open Banking).",
+      scopeName: "transactions",
+      flow: [
+        { step: "Bước 1", title: "Khởi tạo Grant", desc: "Tạo grantToken với scope transactions." },
+        { step: "Bước 2", title: "Mở Cas Link", desc: "End-user đăng nhập tài khoản ngân hàng và cấp quyền." },
+        { step: "Bước 3", title: "Đổi accessToken & Gọi API", desc: "Đổi publicToken lấy accessToken và truy vấn sao kê." }
+      ],
+      apis: [
+        {
+          name: "Lấy danh sách giao dịch",
+          method: "GET",
+          url: "https://sandbox.bankhub.dev/v2/transactions",
+          scope: "transactions",
+          summary: "Truy vấn danh sách biến động số dư theo khoảng thời gian và phân trang.",
+          headers: [
+            { name: "Authorization", type: "String", req: true, desc: "Bearer <accessToken> nhận được sau khi kết nối Cas Link" },
+            { name: "x-client-id", type: "String", req: true, desc: "Client ID của ứng dụng" }
+          ],
+          params: [
+            { name: "fromDate", type: "String", req: true, desc: "Từ ngày tra cứu (định dạng YYYY-MM-DD, VD: 2026-08-01)" },
+            { name: "toDate", type: "String", req: true, desc: "Đến ngày tra cứu (định dạng YYYY-MM-DD, VD: 2026-08-14)" },
+            { name: "page", type: "Number", req: false, desc: "Số trang cần truy vấn (mặc định: 1)" },
+            { name: "pageSize", type: "Number", req: false, desc: "Số bản ghi trên mỗi trang (mặc định: 20, tối đa: 100)" }
+          ],
+          sampleReq: "GET /v2/transactions?fromDate=2026-08-01&toDate=2026-08-14&page=1&pageSize=20 HTTP/1.1\nHost: sandbox.bankhub.dev\nAuthorization: Bearer at_3f2e1d0c9b8a7c6d5e4fabcdef123456\nx-client-id: app_8F2KD91M",
+          sampleRes: "{\n  \"code\": \"00\",\n  \"desc\": \"Success\",\n  \"data\": {\n    \"page\": 1,\n    \"pageSize\": 20,\n    \"total\": 54,\n    \"records\": [\n      {\n        \"id\": \"txn_8920194812\",\n        \"reference\": \"FT26081498102931\",\n        \"amount\": 1500000,\n        \"description\": \"NGUYEN MINH ANH chuyen tien DH10928\",\n        \"transactionDate\": \"2026-08-14 15:42:10\",\n        \"type\": \"CREDIT\",\n        \"accountNumber\": \"19038291029102\",\n        \"bank\": \"Techcombank\",\n        \"corresponsiveAccount\": \"09823192019\",\n        \"corresponsiveName\": \"NGUYEN MINH ANH\"\n      }\n    ]\n  }\n}"
+        },
+        {
+          name: "Đồng bộ giao dịch tức thì",
+          method: "POST",
+          url: "https://sandbox.bankhub.dev/v2/transactions/sync",
+          scope: "transactions",
+          summary: "Kích hoạt đồng bộ giao dịch mới nhất trực tiếp từ ngân hàng vào hệ thống.",
+          headers: [
+            { name: "Authorization", type: "String", req: true, desc: "Bearer <accessToken>" },
+            { name: "Content-Type", type: "String", req: true, desc: "application/json" }
+          ],
+          params: [
+            { name: "bank", type: "String", req: true, desc: "Tên ngân hàng liên kết (Techcombank, Vietcombank...)" },
+            { name: "accountNumber", type: "String", req: true, desc: "Số tài khoản ngân hàng đã cấp quyền" }
+          ],
+          sampleReq: "{\n  \"bank\": \"Techcombank\",\n  \"accountNumber\": \"19038291029102\"\n}",
+          sampleRes: "{\n  \"code\": \"00\",\n  \"desc\": \"Sync triggered successfully\",\n  \"data\": {\n    \"syncedAt\": \"2026-08-14 17:30:00\",\n    \"newTransactions\": 3\n  }\n}"
+        }
+      ]
+    },
+    QRPay: {
+      title: "VietQR & Dynamic QRPay Solution",
+      desc: "Giải pháp khởi tạo mã VietQR động theo chuẩn Napas247 cho phép nhận tiền chuyển khoản ngân hàng tự động 24/7.",
+      scopeName: "qrpay",
+      flow: [
+        { step: "Bước 1", title: "Khởi tạo mã VietQR", desc: "Gọi POST /v2/qr/create truyền số tiền và nội dung đơn hàng." },
+        { step: "Bước 2", title: "Khách hàng quét mã", desc: "Mở App ngân hàng quét mã VietQR và xác nhận chuyển khoản." },
+        { step: "Bước 3", title: "Nhận Webhook tức thì", desc: "Hệ thống CAS tự động bắn Webhook báo kết quả tiền đã vào." }
+      ],
+      apis: [
+        {
+          name: "Tạo mã VietQR động",
+          method: "POST",
+          url: "https://sandbox.bankhub.dev/v2/qr/create",
+          scope: "qrpay",
+          summary: "Tạo mã VietQR kèm số tiền và nội dung chuyển khoản tự động.",
+          headers: [
+            { name: "Authorization", type: "String", req: true, desc: "Bearer <accessToken>" },
+            { name: "x-client-id", type: "String", req: true, desc: "Client ID ứng dụng" },
+            { name: "Content-Type", type: "String", req: true, desc: "application/json" }
+          ],
+          params: [
+            { name: "bank", type: "String", req: true, desc: "Mã ngân hàng (TCB, VCB, MB, ACB, BIDV...)" },
+            { name: "amount", type: "Number", req: true, desc: "Số tiền cần thanh toán (VNĐ)" },
+            { name: "note", type: "String", req: true, desc: "Nội dung chuyển khoản (VD: Thanh toan DH1029)" }
+          ],
+          sampleReq: "{\n  \"bank\": \"Vietcombank\",\n  \"amount\": 2500000,\n  \"note\": \"Thanh toan QR DH1029\"\n}",
+          sampleRes: "{\n  \"code\": \"00\",\n  \"desc\": \"Success\",\n  \"data\": {\n    \"qrId\": \"qr_8492019\",\n    \"qrImage\": \"https://qr.bankhub.dev/v2/image.png\",\n    \"qrRaw\": \"00020101021238580010A000000727...\"\n  }\n}"
+        },
+        {
+          name: "Tra cứu trạng thái QR",
+          method: "GET",
+          url: "https://sandbox.bankhub.dev/v2/qr/{id}/status",
+          scope: "qrpay",
+          summary: "Kiểm tra khách hàng đã quét mã và chuyển tiền thành công hay chưa.",
+          headers: [
+            { name: "Authorization", type: "String", req: true, desc: "Bearer <accessToken>" }
+          ],
+          params: [
+            { name: "qrId", type: "String", req: true, desc: "Mã định danh mã QR đã tạo" }
+          ],
+          sampleReq: "GET /v2/qr/qr_8492019/status HTTP/1.1\nHost: sandbox.bankhub.dev\nAuthorization: Bearer at_3f2e1d0c9b8a7c6d5e4fabcdef123456",
+          sampleRes: "{\n  \"code\": \"00\",\n  \"desc\": \"Success\",\n  \"data\": {\n    \"status\": \"PAID\",\n    \"qrId\": \"qr_8492019\",\n    \"amount\": 2500000,\n    \"paidAt\": \"2026-08-14 17:04:12\"\n  }\n}"
+        }
+      ]
+    },
+    Deeplink: {
+      title: "App-to-App Deeplink Solution",
+      desc: "Giải pháp tự động kích hoạt App ngân hàng trên điện thoại end-user với thông tin chuyển tiền đã được điền sẵn 100%.",
+      scopeName: "deeplink",
+      flow: [
+        { step: "Bước 1", title: "Khởi tạo Deeplink", desc: "Gọi POST /v2/deeplink/generate từ server Vendor." },
+        { step: "Bước 2", title: "Khách hàng nhấp Link", desc: "Tự động mở App Ngân hàng (Techcombank, VCB, MB...) trên Mobile." },
+        { step: "Bước 3", title: "Xác nhận & Chuyển tiền", desc: "Khách hàng nhập OTP/Vân tay để hoàn tất thanh toán." }
+      ],
+      apis: [
+        {
+          name: "Khởi tạo Deeplink",
+          method: "POST",
+          url: "https://sandbox.bankhub.dev/v2/deeplink/generate",
+          scope: "deeplink",
+          summary: "Tạo link chuyển hướng mở App Ngân hàng kèm thông tin điền sẵn.",
+          headers: [
+            { name: "Authorization", type: "String", req: true, desc: "Bearer <accessToken>" },
+            { name: "Content-Type", type: "String", req: true, desc: "application/json" }
+          ],
+          params: [
+            { name: "bank", type: "String", req: true, desc: "Tên/Mã ngân hàng nhận tiền" },
+            { name: "amount", type: "Number", req: true, desc: "Số tiền chuyển (VNĐ)" },
+            { name: "accountName", type: "String", req: true, desc: "Tên người thụ hưởng" },
+            { name: "note", type: "String", req: true, desc: "Nội dung chuyển khoản" }
+          ],
+          sampleReq: "{\n  \"bank\": \"Techcombank\",\n  \"amount\": 1500000,\n  \"accountName\": \"Nguyễn Minh Anh\",\n  \"note\": \"Thanh toan don hang #10928\"\n}",
+          sampleRes: "{\n  \"code\": \"00\",\n  \"desc\": \"Success\",\n  \"data\": {\n    \"deeplinkUrl\": \"https://dl.bankhub.dev/tcb/pay?id=req_DLK98124\",\n    \"expiresIn\": 1800\n  }\n}"
+        }
+      ]
+    },
+    VirtualAccount: {
+      title: "Virtual Account Collection Solution",
+      desc: "Tạo và quản lý các tài khoản thu hộ định danh cấp tự động cho từng khách hàng.",
+      scopeName: "virtual_account",
+      flow: [
+        { step: "Bước 1", title: "Tạo tài khoản VA", desc: "Gọi POST /v2/virtual-accounts cấp cho từng khách hàng." },
+        { step: "Bước 2", title: "Khách hàng nộp tiền", desc: "Chuyển tiền vào số tài khoản VA vừa cấp." },
+        { step: "Bước 3", title: "Nhận thông báo nộp tiền", desc: "Hệ thống tự động nhận diện và cộng tiền tức thì." }
+      ],
+      apis: [
+        {
+          name: "Tạo tài khoản VA mới",
+          method: "POST",
+          url: "https://sandbox.bankhub.dev/v2/virtual-accounts",
+          scope: "virtual_account",
+          summary: "Khởi tạo số tài khoản định danh thu hộ cho khách hàng.",
+          headers: [
+            { name: "Authorization", type: "String", req: true, desc: "Bearer <accessToken>" },
+            { name: "Content-Type", type: "String", req: true, desc: "application/json" }
+          ],
+          params: [
+            { name: "accountName", type: "String", req: true, desc: "Tên hiển thị tài khoản thu hộ" },
+            { name: "bank", type: "String", req: true, desc: "Ngân hàng liên kết (ACB, TCB, VCB...)" }
+          ],
+          sampleReq: "{\n  \"accountName\": \"Công ty CP Minh Long\",\n  \"bank\": \"ACB\"\n}",
+          sampleRes: "{\n  \"code\": \"00\",\n  \"desc\": \"Success\",\n  \"data\": {\n    \"accountNumber\": \"99021842019\",\n    \"accountName\": \"CAS MINH LONG\",\n    \"bank\": \"ACB\"\n  }\n}"
+        }
+      ]
+    },
+    Transfer: {
+      title: "24/7 API Money Transfer Solution",
+      desc: "Giải pháp thực hiện lệnh chuyển tiền nhanh Napas 24/7 tự động qua API.",
+      scopeName: "transfer",
+      flow: [
+        { step: "Bước 1", title: "Khởi tạo lệnh", desc: "Tạo request chuyển tiền kèm thông tin người thụ hưởng." },
+        { step: "Bước 2", title: "Xác thực giao dịch", desc: "Trình ký và xác thực iOTP / OTP." },
+        { step: "Bước 3", title: "Nhận kết quả 24/7", desc: "Nhận kết quả giao dịch và mã tham chiếu Napas." }
+      ],
+      apis: [
+        {
+          name: "Tạo lệnh chuyển tiền 24/7",
+          method: "POST",
+          url: "https://sandbox.bankhub.dev/v2/transfers",
+          scope: "transfer",
+          summary: "Tạo request lệnh chuyển tiền nhanh sang tài khoản bất kỳ.",
+          headers: [
+            { name: "Authorization", type: "String", req: true, desc: "Bearer <accessToken>" },
+            { name: "Content-Type", type: "String", req: true, desc: "application/json" }
+          ],
+          params: [
+            { name: "bank", type: "String", req: true, desc: "Ngân hàng nhận" },
+            { name: "accountNumber", type: "String", req: true, desc: "Số tài khoản nhận tiền" },
+            { name: "amount", type: "Number", req: true, desc: "Số tiền cần chuyển" },
+            { name: "note", type: "String", req: true, desc: "Nội dung chuyển khoản" }
+          ],
+          sampleReq: "{\n  \"bank\": \"Vietcombank\",\n  \"accountNumber\": \"1029381902\",\n  \"amount\": 5000000,\n  \"note\": \"Chi tra luong T8\"\n}",
+          sampleRes: "{\n  \"code\": \"00\",\n  \"desc\": \"Success\",\n  \"data\": {\n    \"transferId\": \"trf_98102938\",\n    \"status\": \"SUCCESS\",\n    \"napasRef\": \"NP260814981023\"\n  }\n}"
+        }
+      ]
+    },
+    BalanceHook: {
+      title: "Real-time Balance Webhook Notification",
+      desc: "Giải pháp bắn Webhook sự kiện biến động số dư tài khoản ngân hàng theo thời gian thực.",
+      scopeName: "balance_hook",
+      flow: [
+        { step: "Bước 1", title: "Khai báo Webhook", desc: "Khai báo URL nhận thông báo biến động số dư tại phần Webhooks." },
+        { step: "Bước 2", title: "Biến động số dư", desc: "Tài khoản ngân hàng phát sinh giao dịch tiền vào / tiền ra." },
+        { step: "Bước 3", title: "Bắn Webhook Event", desc: "CAS gửi payload JSON sang server của bạn trong 500ms." }
+      ],
+      apis: [
+        {
+          name: "Kiểm thử Balance Webhook",
+          method: "POST",
+          url: "https://sandbox.bankhub.dev/v2/balance/webhook/test",
+          scope: "balance_hook",
+          summary: "Gửi một payload Webhook sự kiện biến động số dư giả lập.",
+          headers: [
+            { name: "x-client-id", type: "String", req: true, desc: "Client ID ứng dụng" },
+            { name: "Content-Type", type: "String", req: true, desc: "application/json" }
+          ],
+          params: [
+            { name: "event", type: "String", req: true, desc: "Loại sự kiện (balance.credited, balance.debited)" },
+            { name: "amount", type: "Number", req: true, desc: "Số tiền phát sinh" }
+          ],
+          sampleReq: "{\n  \"event\": \"balance.credited\",\n  \"amount\": 5000000\n}",
+          sampleRes: "{\n  \"status\": \"DELIVERED\",\n  \"httpCode\": 200,\n  \"response\": \"OK\"\n}"
+        }
+      ]
+    }
+  };
+
+  const commonApis = (scopeName: string, serviceTitle: string) => [
+    {
+      name: "API get Grant Token",
+      method: "POST" as const,
+      url: "https://sandbox.bankhub.dev/grant/token",
+      scope: scopeName,
+      summary: `Tạo phân quyền truy cập (Grant) cho dịch vụ ${serviceTitle} để cấp quyền liên kết tài khoản ngân hàng.`,
+      headers: [
+        { name: "x-client-id", type: "String", req: true, desc: "Client ID cấp trong mục API keys" },
+        { name: "x-secret-key", type: "String", req: true, desc: "API secret key của ứng dụng (chỉ dùng ở server backend)" },
+        { name: "Content-Type", type: "String", req: true, desc: "application/json" }
+      ],
+      params: [
+        { name: "scopes", type: "String", req: true, desc: `Quyền cần cấp, truyền: "${scopeName}" (hoặc phân tách bằng dấu phẩy nếu nhiều quyền)` },
+        { name: "redirect_url", type: "String", req: false, desc: "URL chuyển hướng callback sau khi người dùng liên kết qua Cas Link" }
+      ],
+      sampleReq: `{\n  "scopes": "${scopeName}",\n  "redirect_url": "https://yourapp.com/callback"\n}`,
+      sampleRes: "{\n  \"code\": \"00\",\n  \"desc\": \"Success\",\n  \"data\": {\n    \"grantToken\": \"gt_7f8a9b0c-1d2e-3f4a-5b6c-7d8e9f0a1b2c\"\n  }\n}"
+    },
+    {
+      name: "Cas Link (Lấy publicToken)",
+      method: "GET" as const,
+      url: "https://link.bankhub.dev",
+      scope: "cas_link",
+      summary: "Chuyển hướng end-user đến Cas Link kèm grantToken để chọn ngân hàng, đăng nhập và uỷ quyền truy cập.",
+      headers: [
+        { name: "None", type: "None", req: false, desc: "Gọi trực tiếp từ Browser / WebView của end-user" }
+      ],
+      params: [
+        { name: "grantToken", type: "String", req: true, desc: "Mã token nhận được từ bước gọi POST /grant/token" },
+        { name: "redirectUri", type: "String", req: true, desc: "URL để hệ thống redirect về kèm publicToken sau khi liên kết thành công" }
+      ],
+      sampleReq: `GET https://link.bankhub.dev/?grantToken=gt_7f8a9b0c-1d2e-3f4a-5b6c-7d8e9f0a1b2c&redirectUri=https://yourapp.com/callback HTTP/1.1`,
+      sampleRes: "HTTP/1.1 302 Found\nLocation: https://yourapp.com/callback?publicToken=pt_1a2b3c4d-5e6f-7a8b-9c0d-1e2f3a4b5c6d"
+    },
+    {
+      name: "API get accessToken",
+      method: "POST" as const,
+      url: "https://sandbox.bankhub.dev/grant/exchange",
+      scope: "exchange",
+      summary: "Đổi publicToken lấy accessToken và grantId vĩnh viễn ở server để gọi các API nghiệp vụ.",
+      headers: [
+        { name: "x-client-id", type: "String", req: true, desc: "Client ID cấp trong mục API keys" },
+        { name: "x-secret-key", type: "String", req: true, desc: "API secret key của ứng dụng" },
+        { name: "Content-Type", type: "String", req: true, desc: "application/json" }
+      ],
+      params: [
+        { name: "publicToken", type: "String", req: true, desc: "Mã token tạm thời nhận được từ Callback URL của Cas Link" }
+      ],
+      sampleReq: `{\n  "publicToken": "pt_1a2b3c4d-5e6f-7a8b-9c0d-1e2f3a4b5c6d"\n}`,
+      sampleRes: "{\n  \"code\": \"00\",\n  \"desc\": \"Success\",\n  \"data\": {\n    \"accessToken\": \"at_8c9d0e1f-2a3b-4c5d-6e7f-8a9b0c1d2e3f\",\n    \"grantId\": \"grt_5k6l7m8n-9o0p-1q2r-3s4t-5u6v7w8x9y0z\"\n  }\n}"
+    }
+  ];
+
+  const actualCategory = selectedCategory === "QuickStart" ? (activeList[0] || "Transaction") : selectedCategory;
+  const currDoc = productDocs[actualCategory] || productDocs.Transaction;
+  const fullApis = currDoc ? [...commonApis(currDoc.scopeName, currDoc.title), ...currDoc.apis] : [];
+  const currentApi = fullApis[selectedApiIndex] || fullApis[0];
+
+  return (
+    <div className="userguide-layout">
+      {/* Left Menu - Accordion style */}
+      <nav className="userguide-nav">
+        <div className="nav-header">
+          Dịch vụ đã kích hoạt ({activeList.length})
+        </div>
+
+        <div>
+          {activeList.map(cat => {
+            const doc = productDocs[cat];
+            if (!doc) return null;
+            const catFullApis = [...commonApis(doc.scopeName, doc.title), ...doc.apis];
+            const isActiveGroup = actualCategory === cat;
+            
+            return (
+              <div key={cat} className="userguide-nav-group">
+                <button
+                  type="button"
+                  className={`group-btn ${isActiveGroup ? "active" : ""}`}
+                  onClick={() => { setSelectedCategory(cat); setSelectedApiIndex(0); }}
+                >
+                  <span>{usageTabLabel(cat as AnalyticsTab)}</span>
+                  <span style={{ fontSize: 12, opacity: 0.6, transform: isActiveGroup ? "rotate(90deg)" : "none", transition: "transform 0.2s" }}>▶</span>
+                </button>
+                {isActiveGroup && (
+                  <div className="group-submenus">
+                    {catFullApis.map((api, idx) => (
+                      <button
+                        key={api.name}
+                        type="button"
+                        className={`submenu-btn ${selectedApiIndex === idx ? "active" : ""}`}
+                        onClick={() => setSelectedApiIndex(idx)}
+                      >
+                        <span className={`endpoint-method ${api.method.toLowerCase()}`}>{api.method}</span>
+                        <span>{api.name}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </nav>
+
+      {/* Main Content Area */}
+      <main className="userguide-main">
+        {/* Product Overview Header */}
+        <div className="api-endpoint-card">
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+            <h3 style={{ margin: 0, fontSize: 20, fontWeight: 700, color: "var(--ink)" }}>{currDoc.title}</h3>
+            <span className="status-pill">Active Service</span>
+          </div>
+          <p style={{ margin: "0 0 16px 0", color: "var(--muted)", fontSize: 14, lineHeight: 1.5 }}>{currDoc.desc}</p>
+          
+          <hr style={{ border: "none", borderTop: "1px dashed #e2e4ed", margin: "16px 0" }} />
+
+          {/* Selected API Document Detail */}
+          <div>
+            <h4 style={{ margin: "0 0 12px 0", fontSize: 18, color: "#1e2130" }}>{currentApi.name}</h4>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8, flexWrap: "wrap" }}>
+              <span className={`endpoint-method ${currentApi.method.toLowerCase()}`}>{currentApi.method}</span>
+              <span className="endpoint-url">{currentApi.url}</span>
+              <span className="status-pill" style={{ marginLeft: "auto", fontSize: 10 }}>Scope: {currentApi.scope}</span>
+            </div>
+            <p style={{ margin: "4px 0 16px", color: "var(--muted)", fontSize: 14, lineHeight: 1.6 }}>{currentApi.summary}</p>
+
+            {/* Headers Table */}
+            {currentApi.headers && currentApi.headers.length > 0 && (
+              <div style={{ marginBottom: 16 }}>
+                <strong style={{ fontSize: 14, display: "block", marginBottom: 8, color: "#1e2130" }}>Request Headers</strong>
+                <table className="param-table">
+                  <thead>
+                    <tr>
+                      <th style={{ width: "25%" }}>Header</th>
+                      <th style={{ width: "15%" }}>Kiểu dữ liệu</th>
+                      <th style={{ width: "15%" }}>Bắt buộc</th>
+                      <th>Mô tả</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {currentApi.headers.map(h => (
+                      <tr key={h.name}>
+                        <td><code>{h.name}</code></td>
+                        <td>{h.type}</td>
+                        <td>{h.req ? <span style={{ color: "var(--red)", fontWeight: 600 }}>Có</span> : "Không"}</td>
+                        <td>{h.desc}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {/* Request Parameters Table */}
+            <strong style={{ fontSize: 14, display: "block", marginBottom: 8, color: "#1e2130" }}>
+              {currentApi.method === "GET" ? "Query Parameters" : "Request Body Parameters"}
+            </strong>
+            <table className="param-table">
+              <thead>
+                <tr>
+                  <th>Tham số</th>
+                  <th>Kiểu dữ liệu</th>
+                  <th>Bắt buộc</th>
+                  <th>Mô tả</th>
+                </tr>
+              </thead>
+              <tbody>
+                {currentApi.params.map(p => (
+                  <tr key={p.name}>
+                    <td><code>{p.name}</code></td>
+                    <td>{p.type}</td>
+                    <td>{p.req ? <span style={{ color: "var(--red)", fontWeight: 600 }}>Có</span> : "Không"}</td>
+                    <td>{p.desc}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* Sandbox Playground Form */}
+        {currentApi.scope !== "cas_link" && currentApi.scope !== "exchange" && currentApi.name !== "API get Grant Token" && (
+          <div className="sandbox-tester-box">
+            <div className="sandbox-tester-title">
+              <div>
+                <h4>🧪 Sandbox Test Playground ({currentApi.name})</h4>
+                <small style={{ color: "var(--muted)", fontSize: 11 }}>Nhập thông số và chạy thử request API. Kết quả sẽ cập nhật ngay vào Usage và Request Logs.</small>
+              </div>
+              <FormButton
+                variant="primary"
+                size="sm"
+                onClick={() => onRunTest(actualCategory as AnalyticsTab, { bank: testBank, amount: testAmount, accountName: testAccountName, note: testNote })}
+              >
+                ⚡ Chạy Request Test (Sandbox)
+              </FormButton>
+            </div>
+
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginTop: 12 }}>
+              <label style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 13, fontWeight: 600, color: "#374151" }}>
+                Ngân hàng
+                <FormSelect
+                  value={testBank}
+                  onChange={e => setTestBank(e.target.value)}
+                  options={["Techcombank", "Vietcombank", "MB Bank", "ACB", "BIDV", "Sacombank", "VietinBank", "VPBank", "TPBank"]}
+                  size="sm"
+                />
+              </label>
+              <label style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 13, fontWeight: 600, color: "#374151" }}>
+                Số tiền giao dịch (VNĐ)
+                <FormInput
+                  value={testAmount}
+                  onChange={e => setTestAmount(e.target.value)}
+                  placeholder="VD: 1500000"
+                  size="sm"
+                />
+              </label>
+              <label style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 13, fontWeight: 600, color: "#374151" }}>
+                Tên tài khoản / Thụ hưởng
+                <FormInput
+                  value={testAccountName}
+                  onChange={e => setTestAccountName(e.target.value)}
+                  placeholder="VD: Nguyễn Minh Anh"
+                  size="sm"
+                />
+              </label>
+              <label style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 13, fontWeight: 600, color: "#374151" }}>
+                Nội dung chuyển khoản
+                <FormInput
+                  value={testNote}
+                  onChange={e => setTestNote(e.target.value)}
+                  placeholder="VD: Thanh toan don hang #10928"
+                  size="sm"
+                />
+              </label>
+            </div>
+          </div>
+        )}
+
+        {/* Code Snippets */}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+          <div className="api-endpoint-card">
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+              <strong style={{ fontSize: 12 }}>Sample Request Body</strong>
+              <button
+                type="button"
+                className="custom-button btn-ghost btn-sm"
+                onClick={() => { navigator.clipboard?.writeText(currentApi.sampleReq); showNotice("Đã sao chép Request JSON"); }}
+              >
+                Sao chép
+              </button>
+            </div>
+            <pre style={{ margin: 0, padding: 12, background: "#171827", color: "#e2e8f0", borderRadius: 8, fontSize: 13, overflowX: "auto", fontFamily: "var(--font-jakarta), monospace" }}>
+              <code>{currentApi.sampleReq}</code>
+            </pre>
+          </div>
+
+          <div className="api-endpoint-card">
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+              <strong style={{ fontSize: 12 }}>Sample 200 OK Response</strong>
+              <button
+                type="button"
+                className="custom-button btn-ghost btn-sm"
+                onClick={() => { navigator.clipboard?.writeText(currentApi.sampleRes); showNotice("Đã sao chép Response JSON"); }}
+              >
+                Sao chép
+              </button>
+            </div>
+            <pre style={{ margin: 0, padding: 12, background: "#171827", color: "#38bdf8", borderRadius: 8, fontSize: 13, overflowX: "auto", fontFamily: "var(--font-jakarta), monospace" }}>
+              <code>{currentApi.sampleRes}</code>
+            </pre>
+          </div>
+        </div>
+      </main>
+    </div>
+  );
+}
+
+function DeveloperSettings({ page, showNotice }: { page: "API keys" | "Direct URL" | "Webhooks"; showNotice: (message: string) => void }) {
   const [showSecret, setShowSecret] = useState(false);
   const [redirects, setRedirects] = useState(["https://app.bankhub.vn/cas/callback", "https://staging.bankhub.vn/cas/callback"]);
   const [webhooks, setWebhooks] = useState([
@@ -1140,12 +2550,32 @@ function DeveloperSettings({ page, showNotice }: { page: "API keys" | "API" | "W
     const clientId = "33d42bee-13b4-4f33-b528-51e958e065ae";
     const secret = "cas_live_sk_8F2KD91M_n7Qp4Xv2Rc9L";
     return <section className="developer-form">
-      <div className="form-section"><div className="form-label"><h2>Client API</h2><p>Dùng Client ID để định danh App trong quá trình kết nối.</p></div><div className="credential-field"><code>{clientId}</code><button onClick={() => copyValue(clientId, "Client ID")}>▣ Sao chép</button></div></div>
-      <div className="form-section secret-section"><div className="form-label"><h2>API secret key</h2><p>Chỉ sử dụng secret ở phía server. Không đưa key vào mobile app hoặc frontend.</p></div><div className="warning-box"><span>△</span><p>Không chia sẻ secret key. Nếu key bị lộ, hãy rotate ngay để vô hiệu hoá key cũ.</p></div><div className="credential-field"><code>{showSecret ? secret : "••••••••••••••••••••••••••••••••"}</code><button onClick={() => setShowSecret(!showSecret)}>{showSecret ? "Ẩn" : "Hiện"}</button><button onClick={() => copyValue(secret, "Secret key")}>▣ Sao chép</button><button onClick={() => showNotice("Secret key mới đã được tạo")}>↻ Rotate</button></div><small className="field-note">Tạo lúc 12/07/2026 · Sử dụng gần nhất 4 phút trước</small></div>
+      <div className="form-section">
+        <div className="form-label"><h2>Client API</h2><p>Dùng Client ID để định danh App trong quá trình kết nối.</p></div>
+        <CredentialBox
+          value={clientId}
+          label="Client ID"
+          onCopy={() => copyValue(clientId, "Client ID")}
+        />
+      </div>
+      <div className="form-section secret-section">
+        <div className="form-label"><h2>API secret key</h2><p>Chỉ sử dụng secret ở phía server. Không đưa key vào mobile app hoặc frontend.</p></div>
+        <div className="warning-box"><span>△</span><p>Không chia sẻ secret key. Nếu key bị lộ, hãy rotate ngay để vô hiệu hoá key cũ.</p></div>
+        <CredentialBox
+          value={secret}
+          label="Secret key"
+          showToggle
+          isShowing={showSecret}
+          onToggle={() => setShowSecret(!showSecret)}
+          onCopy={() => copyValue(secret, "Secret key")}
+          onRotate={() => showNotice("Secret key mới đã được tạo")}
+          note="Tạo lúc 12/07/2026 · Sử dụng gần nhất 4 phút trước"
+        />
+      </div>
     </section>;
   }
 
-  if (page === "API") {
+  if (page === "Direct URL") {
     return <section className="developer-form">
       <div className="settings-intro"><h2>URL trả về sau khi cấp quyền</h2><p>CAS chỉ chuyển hướng end-user về các URL đã được khai báo tại đây. URL phải dùng HTTPS, ngoại trừ localhost khi phát triển.</p></div>
       <div className="url-list">{redirects.map((url, index) => <div className="url-row" key={`${url}-${index}`}><span>{index + 1}</span><input value={url} onChange={e => setRedirects(redirects.map((item, i) => i === index ? e.target.value : item))} /><button onClick={() => setRedirects(redirects.filter((_, i) => i !== index))}>Xoá</button></div>)}</div>
