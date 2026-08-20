@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, type CSSProperties } from "react";
+import { useEffect, useMemo, useState, type CSSProperties } from "react";
 
 type AppData = { id: string; name: string; short: string; color: string; environment: string };
 type AnalyticsTab = "Connection" | "Transaction" | "Identity" | "Balance" | "QRPay" | "VirtualAccount" | "BalanceHook" | "Transfer" | "eKYC" | "Invoice" | "Deeplink";
@@ -21,6 +21,36 @@ type LogRecord = {
 
 type TeamData = { id: string; name: string; short: string; role: string; apps: AppData[] };
 
+type TeamMember = {
+  id: string;
+  name: string;
+  email: string;
+  status: "ACTIVE" | "PENDING";
+  phone: string;
+  role: "OWNER" | "ADMIN" | "DEVELOPER" | "MEMBER";
+};
+
+const initialMembers: TeamMember[] = [
+  { id: "m_1", name: "Canh", email: "canhphq@cas.so", status: "ACTIVE", phone: "0395834812", role: "OWNER" },
+  { id: "m_2", name: "Minh Nguyễn", email: "minh.nguyen@vietfin.vn", status: "ACTIVE", phone: "0912345678", role: "ADMIN" },
+  { id: "m_3", name: "Hưng Trần", email: "hung.tran@cas.so", status: "ACTIVE", phone: "0987654321", role: "DEVELOPER" },
+];
+
+type PermissionKey =
+  | "view_secret"
+  | "manage_app"
+  | "view_request_log"
+  | "view_webhook_log"
+  | "view_link_log"
+  | "manage_redirect_uri"
+  | "view_redirect_uri";
+
+const roleDefaultPermissions: Record<string, PermissionKey[]> = {
+  "Thành viên": ["view_request_log", "view_link_log", "view_redirect_uri"],
+  "Nhà phát triển": ["view_secret", "view_request_log", "view_webhook_log", "view_link_log", "manage_redirect_uri", "view_redirect_uri"],
+  "Quản trị viên": ["view_secret", "manage_app", "view_request_log", "view_webhook_log", "view_link_log", "manage_redirect_uri", "view_redirect_uri"],
+};
+
 const languages = [
   { code: "VI", name: "Tiếng Việt", flag: "🇻🇳" },
   { code: "EN", name: "English", flag: "🇺🇸" },
@@ -32,7 +62,7 @@ const teams: TeamData[] = [
   {
     id: "team_1", name: "VietFin Digital", short: "VD", role: "Owner",
     apps: [
-      { id: "app_8F2KD91M", name: "BankHub EKYC", short: "BE", color: "#6956d9", environment: "Production" },
+      { id: "app_8F2KD91M", name: "BankHub EKYC", short: "BE", color: "#16a34a", environment: "Production" },
       { id: "app_3H7NP24Q", name: "FinFlow Personal", short: "FP", color: "#16856f", environment: "Production" },
       { id: "app_9C1RT63V", name: "LendNow Sandbox", short: "LN", color: "#d9773b", environment: "Sandbox" },
     ]
@@ -48,9 +78,9 @@ const teams: TeamData[] = [
 
 const navGroups = [
   { label: "", items: [{ icon: "⌂", label: "Tổng quan" }] },
-  { label: "DEVELOPER", items: [{ icon: "⌁", label: "API keys" }, { icon: "↗", label: "Direct URL" }, { icon: "◫", label: "Webhooks" }, { icon: "≡", label: "Logs" }, { icon: "📖", label: "Userguide" }] },
-  { label: "HOẠT ĐỘNG", items: [{ icon: "◎", label: "Grants" }, { icon: "↗", label: "Usage" }, { icon: "💳", label: "Billing" }, { icon: "◇", label: "Grant debugger" }] },
-  { label: "CẤU HÌNH", items: [{ icon: "⚙", label: "Cài đặt App" }, { icon: "♙", label: "Thành viên" }] },
+  { label: "DEVELOPER", items: [{ icon: "⌁", label: "Keys" }, { icon: "⇄", label: "RedirectURI/IP" }, { icon: "◫", label: "Webhooks" }, { icon: "≡", label: "Logs" }] },
+  { label: "HOẠT ĐỘNG", items: [{ icon: "◎", label: "Grants" }, { icon: "⊞", label: "Usage" }, { icon: "💳", label: "Billing" }, { icon: "◇", label: "Grant debugger" }] },
+  { label: "CẤU HÌNH", items: [{ icon: "⚙", label: "Cài đặt App" }] },
 ];
 
 const baseRows: DetailRow[] = [
@@ -64,10 +94,10 @@ const scopeConfig: Record<Exclude<AnalyticsTab, "Connection">, { grants: string;
   Transaction: { grants: "68", costGrants: "6.200.000 VNĐ", active: "62", calls: "426.800", cost: "19.004.000", endpoints: ["/v2/transactions", "/v2/transactions/sync", "/v2/transactions/{id}"], price: 50 },
   Identity: { grants: "1.842", costGrants: "750.000 VNĐ", active: "1.806", calls: "204.100", cost: "12.246.000", endpoints: ["/v2/identity", "/v2/identity/profile", "/v2/accounts/owner"], price: 60 },
   Balance: { grants: "2.204", costGrants: "750.000 VNĐ", active: "2.171", calls: "281.400", cost: "9.849.000", endpoints: ["/v2/balance", "/v2/accounts", "/v2/accounts/{id}/balance"], price: 35 },
-  QRPay: { grants: "986", costGrants: "750.000 VNĐ", active: "954", calls: "146.700", cost: "14.280.000", endpoints: ["/v2/qr/create", "/v2/qr/{id}", "/v2/qr/status"], price: 40, webhook: true },
+  QRPay: { grants: "986", costGrants: "750.000 VNĐ", active: "954", calls: "146.700", cost: "3.280.000", endpoints: ["/v2/qr/create", "/v2/qr/{id}", "/v2/qr/status"], price: 40, webhook: true },
   VirtualAccount: { grants: "742", costGrants: "750.000 VNĐ", active: "716", calls: "98.400", cost: "1.520.000", endpoints: ["/v2/virtual-accounts", "/v2/virtual-accounts/{id}", "/v2/virtual-accounts/transactions"], price: 50, webhook: true },
   BalanceHook: { grants: "2.204", costGrants: "750.000 VNĐ", active: "2.171", calls: "281.400", cost: "84.270.000", endpoints: ["/v2/balance/webhook", "/v2/balance/events"], price: 35, webhook: true },
-  Transfer: { grants: "1.126", costGrants: "750.000 VNĐ", active: "1.084", calls: "108.200", cost: "215.600.000", endpoints: ["/v2/transfers", "/v2/transfers/{id}", "/v2/transfers/confirm"], price: 80 },
+  Transfer: { grants: "1.126", costGrants: "750.000 VNĐ", active: "1.084", calls: "108.200", cost: "2.600.000", endpoints: ["/v2/transfers", "/v2/transfers/{id}", "/v2/transfers/confirm"], price: 80 },
   eKYC: { grants: "1.508", costGrants: "750.000 VNĐ", active: "1.492", calls: "176.500", cost: "14.120.000", endpoints: ["/v2/ekyc/sessions", "/v2/ekyc/verify", "/v2/ekyc/results/{id}"], price: 80 },
   Invoice: { grants: "624", costGrants: "750.000 VNĐ", active: "603", calls: "72.600", cost: "3.630.000", endpoints: ["/v2/invoices", "/v2/invoices/{id}", "/v2/invoices/search"], price: 50 },
   Deeplink: { grants: "820", costGrants: "750.000 VNĐ", active: "795", calls: "115.400", cost: "11.540.000", endpoints: ["/v2/deeplink/generate", "/v2/deeplink/resolve", "/v2/deeplink/status"], price: 100 },
@@ -117,11 +147,10 @@ const analyticsData: Record<AnalyticsTab, {
   Connection: {
     subtitle: "Tổng hợp Grant ID đã kết nối và các scope được cấp quyền",
     metrics: [
-      { label: "Tổng Grant ID", value: "2.847", unit: "grant" },
-      { label: "Đang hoạt động · đến 31/07", value: "2.592", unit: "grant" },
-      { label: "Thêm mới trong tháng", value: "184", unit: "grant" },
-      { label: "Tạm dừng trong tháng", value: "14", tone: "warning", unit: "grant" },
-      { label: "Đã xoá trong tháng", value: "3", tone: "danger", unit: "grant" },
+      { label: "Tổng Grant", value: "2.847", unit: "" },
+      { label: "Đang hoạt động", value: "2.592", unit: "" },
+      { label: "Thêm mới trong tháng", value: "184", unit: "" },
+      { label: "Đã xoá/dừng trong tháng", value: "3", tone: "danger", unit: "" },
     ],
     rows: baseRows,
   },
@@ -131,42 +160,38 @@ const analyticsData: Record<AnalyticsTab, {
       subtitle: `${config.grants} Grant ID đang có quyền gọi API thuộc scope ${scope}`,
       metrics: scope === "QRPay"
         ? [
-          { label: "Grant đang hoạt động", value: config.active, change: "+6.8%", unit: "grant" },
-          { label: "Thanh toán thành công", value: "132.400", change: "+8.6%", unit: "giao dịch" },
-          { label: "Thông báo thành công", value: "131.900", change: "+8.2%", unit: "giao dịch" },
+          { label: "Grant đang hoạt động", value: config.active, change: "+6.8%", unit: "" },
+          { label: "Số lượng giao dịch", value: "132.400", change: "+8.6%", unit: "" },
           { label: "Tổng tiền giao dịch", value: "12.486.750.000", change: "+10.4%", unit: "đ" },
-          { label: "Chi phí QR Pay", value: config.cost, change: "+8.9%", unit: "đ" },
+          { label: "Chi phí QRPay", value: config.cost, change: "+8.9%", unit: "đ" },
         ]
         : scope === "VirtualAccount"
           ? [
-            { label: "Grant đang hoạt động", value: config.active, change: "+6.8%", unit: "grant" },
-            { label: "Số lượng VA đang hoạt động", value: "1.520", change: "+12.4%", unit: "VA" },
-            { label: "Số lượng VA tạo mới", value: "184", change: "+15.2%", unit: "VA" },
-            { label: "Số lượng VA ngừng kích hoạt", value: "12", tone: "warning", change: "+2.1%", unit: "VA" },
+            { label: "Grant đang hoạt động", value: config.active, change: "+6.8%", unit: "" },
+            { label: "Số lượng VA hoạt động", value: "1.520", change: "+12.4%", unit: "" },
+            { label: "Số lượng VA tạo mới", value: "184", change: "+15.2%", unit: "" },
             { label: "Chi phí VA", value: config.cost, change: "+8.9%", unit: "đ" },
           ]
           : scope === "BalanceHook"
             ? [
-              { label: "Tổng giao dịch", value: "281.400", change: "+9.7%", unit: "giao dịch" },
-              { label: "Thông báo thành công", value: "280.900", change: "+9.5%", unit: "thông báo" },
-              { label: "Thông báo thất bại", value: "500", tone: "warning", change: "-1.2%", unit: "thông báo" },
+              { label: "Grant đang hoạt động", value: config.active, change: "+6.8%", unit: "" },
+              { label: "Số lượng giao dịch", value: "281.400", change: "+9.7%", unit: "" },
               { label: "Tổng tiền giao dịch", value: "45.820.000.000", change: "+14.2%", unit: "đ" },
               { label: "Chi phí", value: config.cost, change: "+8.9%", unit: "đ" },
             ]
             : scope === "Transfer"
               ? [
-                { label: "Tổng giao dịch", value: "108.200", change: "+9.7%", unit: "giao dịch" },
-                { label: "Giao dịch thành công", value: "107.800", change: "+9.6%", unit: "giao dịch" },
-                { label: "Giao dịch thất bại", value: "400", tone: "warning", change: "-1.5%", unit: "giao dịch" },
-                { label: "Tổng tiền", value: "82.650.000.000", change: "+16.8%", unit: "đ" },
+                { label: "Grant đang hoạt động", value: config.active, change: "+6.8%", unit: "" },
+                { label: "Số lượng giao dịch", value: "108.200", change: "+9.7%", unit: "" },
+                { label: "Tổng tiền giao dịch", value: "82.650.000.000", change: "+16.8%", unit: "đ" },
                 { label: "Chi phí", value: config.cost, change: "+8.9%", unit: "đ" },
               ]
               : scope === "Transaction"
                 ? [
-                  { label: "Grant đang hoạt động", value: "62", change: "+4.2%", unit: "grant" },
-                  { label: "Chi phí Grant (100.000đ/grant)", value: "6.200.000", change: "+4.2%", unit: "đ" },
-                  { label: "API calls thành công", value: config.calls, change: "+9.7%", unit: "calls" },
-                  { label: "Chi phí API (30.000đ/1.000 calls)", value: "12.804.000", change: "+9.7%", unit: "đ" },
+                  { label: "Grant đang hoạt động", value: "62", change: "+4.2%", unit: "" },
+                  { label: "Chi phí Grant", value: "6.200.000", change: "+4.2%", unit: "đ" },
+                  { label: "Request thành công", value: config.calls, change: "+9.7%", unit: "" },
+                  { label: "Chi phí Request", value: "12.804.000", change: "+9.7%", unit: "đ" },
                 ]
                 : [
                   { label: `Grant ${scope} đang hoạt động`, value: config.grants, change: "+6.8%", unit: "grant" },
@@ -186,26 +211,25 @@ const analyticsData: Record<AnalyticsTab, {
   Deeplink: {
     subtitle: "Thống kê lượt khởi tạo và chuyển hướng Deeplink tới ứng dụng ngân hàng",
     metrics: [
-      { label: "Tổng Deeplink", value: "115.400", change: "+14.2%", unit: "lượt" },
+      { label: "Số lượng ngân hàng", value: "12", change: "+4.2%", unit: "" },
+      { label: "Số lượng giao dịch", value: "115.400", change: "+14.2%", unit: "" },
       { label: "Tổng tiền giao dịch", value: "48.250.000.000 VNĐ", change: "+18.5%" },
-      { label: "Chi phí", value: "11.540.000 VNĐ", change: "+12.1%" },
-      { label: "Deeplink thành công", value: "112.800", change: "+15.0%", unit: "lượt" },
-      { label: "Deeplink thất bại", value: "2.600", change: "-2.1%", tone: "danger", unit: "lượt" },
+      { label: "Chi phí", value: "11.540.000 VNĐ", change: "+12.1%" }
     ],
     rows: buildScopeRows("Deeplink"),
   },
 };
 
 const screenData: Record<string, { description: string; action: string; columns: string[]; rows: string[][] }> = {
-  "API keys": { description: "Client ID và Secret key dùng để xác thực App.", action: "Tìm hiểu thêm ↗", columns: [], rows: [] },
-  API: { description: "Danh sách URL nhận kết quả sau khi end-user cấp quyền thành công.", action: "Tìm hiểu thêm ↗", columns: [], rows: [] },
-  Webhooks: { description: "Endpoint nhận sự kiện Grant, Transaction, QRPay và VirtualAccount.", action: "＋ Thêm webhook", columns: [], rows: [] },
-  Logs: { description: "Lịch sử request API và webhook của App.", action: "⇩ Export logs", columns: ["Request ID", "Endpoint / Event", "Scope", "Grant ID", "HTTP"], rows: [["req_7KQ2M91P", "/v2/transactions", "Transaction", "grt_8L2KP91N", "200"], ["req_4PX9D20A", "/v2/balance", "Balance", "grt_4T7MD20Q", "200"], ["wh_1MV3C84F", "payment.succeeded", "QRPay webhook", "grt_1A9HC63V", "200"], ["wh_8AB5R72W", "va.credited", "VirtualAccount webhook", "grt_6P3RF82K", "429"]] },
-  Grants: { description: "Tổng hợp Grant ID, ngân hàng và các scope đã được cấp.", action: "＋ Tạo connection", columns: ["Grant ID", "End-user", "Ngân hàng", "Scopes được cấp", "Trạng thái"], rows: baseRows.map(r => [r.grant, r.user, r.bank, r.scopes, r.status]) },
-  Usage: { description: "Theo dõi Grant, API usage và chi phí theo từng nghiệp vụ.", action: "⇩ Tải hoá đơn", columns: ["Scope", "Grant có quyền", "API calls", "Chi phí", "Trạng thái"], rows: (Object.keys(scopeConfig) as Exclude<AnalyticsTab, "Connection">[]).map(scope => [scope, scopeConfig[scope].grants, scopeConfig[scope].calls, scopeConfig[scope].cost, "Active"]) },
+  "API keys": { description: "Client ID và Secret key dùng để xác thực App.", action: "Tìm hiểu thêm", columns: [], rows: [] },
+  API: { description: "Danh sách URL nhận kết quả sau khi end-user cấp quyền thành công.", action: "Tìm hiểu thêm", columns: [], rows: [] },
+  Webhooks: { description: "Endpoint nhận sự kiện Grant, Transaction, QRPay và VirtualAccount.", action: "Thêm webhook", columns: [], rows: [] },
+  Logs: { description: "Lịch sử request API và webhook của App.", action: "Export logs", columns: ["Request ID", "Endpoint / Event", "Scope", "Grant ID", "HTTP"], rows: [["req_7KQ2M91P", "/v2/transactions", "Transaction", "grt_8L2KP91N", "200"], ["req_4PX9D20A", "/v2/balance", "Balance", "grt_4T7MD20Q", "200"], ["wh_1MV3C84F", "payment.succeeded", "QRPay webhook", "grt_1A9HC63V", "200"], ["wh_8AB5R72W", "va.credited", "VirtualAccount webhook", "grt_6P3RF82K", "429"]] },
+  Grants: { description: "Tổng hợp Grant ID, ngân hàng và các scope đã được cấp.", action: "Tạo connection", columns: ["Grant ID", "End-user", "Ngân hàng", "Scopes được cấp", "Trạng thái"], rows: baseRows.map(r => [r.grant, r.user, r.bank, r.scopes, r.status]) },
+  Usage: { description: "Theo dõi Grant, API usage và chi phí theo từng nghiệp vụ.", action: "Tải hoá đơn", columns: ["Scope", "Grant có quyền", "API calls", "Chi phí", "Trạng thái"], rows: (Object.keys(scopeConfig) as Exclude<AnalyticsTab, "Connection">[]).map(scope => [scope, scopeConfig[scope].grants, scopeConfig[scope].calls, scopeConfig[scope].cost, "Active"]) },
   "Grant debugger": { description: "Kiểm tra trạng thái và quyền của một Grant.", action: "Chạy kiểm tra", columns: ["Grant ID gần đây", "Ngân hàng", "Scopes", "Hết hạn", "Trạng thái"], rows: [["grt_8L2KP91N", "Techcombank", "identity, balance, transaction", "24/10/2026", "Healthy"], ["grt_4T7MD20Q", "Vietcombank", "balance, transaction", "02/11/2026", "Healthy"], ["grt_1A9HC63V", "MB Bank", "identity, qrpay", "28/07/2026", "Expiring"]] },
   "Cài đặt App": { description: "Thông tin và callback URL của App.", action: "Lưu thay đổi", columns: ["Cấu hình", "Giá trị", "Môi trường", "Cập nhật", "Trạng thái"], rows: [["App ID", "app_8F2KD91M", "—", "Không đổi", "Active"], ["Redirect URI", "bankhub.vn/cas/callback", "Production", "19/07/2026", "Verified"], ["Allowed origin", "https://bankhub.vn", "Production", "19/07/2026", "Verified"]] },
-  "Thành viên": { description: "Quản lý quyền truy cập App.", action: "＋ Mời thành viên", columns: ["Thành viên", "Email", "Vai trò", "Truy cập gần nhất", "Trạng thái"], rows: [["Minh Nguyễn", "minh@vietfin.vn", "Owner", "Vừa xong", "Active"], ["Linh Phạm", "linh@vietfin.vn", "Developer", "2 giờ trước", "Active"], ["Huy Trần", "huy@vietfin.vn", "Analyst", "Hôm qua", "Active"]] },
+  "Thành viên": { description: "Quản lý quyền truy cập App.", action: "Mời thành viên", columns: ["Thành viên", "Email", "Vai trò", "Truy cập gần nhất", "Trạng thái"], rows: [["Minh Nguyễn", "minh@vietfin.vn", "Owner", "Vừa xong", "Active"], ["Linh Phạm", "linh@vietfin.vn", "Developer", "2 giờ trước", "Active"], ["Huy Trần", "huy@vietfin.vn", "Analyst", "Hôm qua", "Active"]] },
 };
 
 const monthChartValues = [34, 39, 37, 45, 42, 49, 47, 52, 50, 57, 54, 61, 59, 64, 62, 69, 66, 72, 70, 76, 73, 81, 78, 84, 82, 88, 85, 91, 89, 94, 92];
@@ -386,7 +410,7 @@ const usageTableData: Record<AnalyticsTab, { title: string; columns: string[]; r
     ],
   },
   Transaction: {
-    title: "Lịch sử đồng bộ giao dịch",
+    title: "Danh sách",
     columns: ["STT", "Request ID", "Grant ID", "Ngân hàng", "Số tài khoản", "Từ ngày", "Đến ngày", "Trạng thái", "Tốc độ", "Thời gian gọi"],
     rows: [
       ["1", "req_TRX84291", "grt_8L2KP91N", "Techcombank", "1903 •••• 4812", "01/07/2026", "24/07/2026", "Success", "0.5s", "24/07/2026 17:04:28"],
@@ -427,7 +451,7 @@ const usageTableData: Record<AnalyticsTab, { title: string; columns: string[]; r
     ],
   },
   QRPay: {
-    title: "Danh sách giao dịch",
+    title: "Danh sách",
     columns: ["STT", "QR ID", "Grant ID", "Reference", "Transaction", "Ngân hàng", "STK", "Tên người nhận", "Số tiền", "Nội dung", "Thông báo", "Thời gian"],
     rows: [
       ["1", "qr_M20P81", "grt_8L2KP91N", "FT260724163218", "BH10428", "Techcombank", "1903 •••• 4812", "Nguyễn Minh Anh", "₫125,000", "Order BH-10428", "Delivered", "24/07/2026 16:32:18"],
@@ -448,28 +472,28 @@ const usageTableData: Record<AnalyticsTab, { title: string; columns: string[]; r
     ],
   },
   VirtualAccount: {
-    title: "Danh sách tài khoản định danh (Virtual Account)",
-    columns: ["STT", "GrantID", "Ngân hàng", "Tên tài khoản", "STK gốc", "Tên VA", "VA", "Trạng thái", "Ngày tạo"],
+    title: "Danh sách",
+    columns: ["STT", "VA ID", "Grant ID", "Ngân hàng", "Tên tài khoản", "STK gốc", "Tên VA", "VA", "Trạng thái", "Ngày tạo"],
     rows: [
-      ["1", "grt_6P3RF82K", "ACB", "CTY TNHH NAM VIET", "2167 •••• 3306", "VA Thanh toan Nam Viet", "9868120001842", "Active", "23/07/2026 17:03"],
-      ["2", "grt_9Q4LC73A", "Vietcombank", "CTY CP NOVA RETAIL", "1028 •••• 1098", "VA Nova Store HCM", "9704360028471", "Active", "22/07/2026 09:34"],
-      ["3", "grt_4T7MD20Q", "Techcombank", "CTY CP MINH LONG", "1903 •••• 4812", "VA Thu ho Minh Long", "1903690015820", "Paused", "20/07/2026 14:15"],
-      ["4", "grt_8L2KP91N", "BIDV", "NGUYEN MINH ANH", "2111 •••• 9024", "VA Minh Anh Personal", "1289100042763", "Inactive", "18/07/2026 11:20"],
-      ["5", "grt_1A9HC63V", "MB Bank", "PHAM THUY LINH", "0681 •••• 6721", "VA Linh Pham Store", "9901820038194", "Active", "15/07/2026 08:45"],
-      ["6", "grt_2K8NP14D", "Sacombank", "TRAN HOANG LONG", "0602 •••• 2180", "VA Long Tran Online", "9602410082736", "Active", "12/07/2026 16:30"],
-      ["7", "grt_5M3KP82N", "VietinBank", "NGUYEN VAN DUC", "1018 •••• 5541", "VA Van Duc Trading", "9688100055410", "Active", "10/07/2026 14:10"],
-      ["8", "grt_7B9RT14H", "Techcombank", "CTY CP TRUONG SON", "1902 •••• 8812", "VA Thu ho Truong Son", "1903880088120", "Active", "08/07/2026 09:25"],
-      ["9", "grt_3C8VL90P", "VPBank", "TRINH BAO NGOC", "1542 •••• 9901", "VA Ngoc Trinh Shop", "9842150099015", "Paused", "05/07/2026 16:40"],
-      ["10", "grt_9X2NY55T", "Vietcombank", "CTY TNHH SAI GON TECH", "1019 •••• 3342", "VA Saigon Tech Main", "9704190033421", "Active", "03/07/2026 11:15"],
-      ["11", "grt_1L8QP42K", "TPBank", "VU THU TRANG", "0219 •••• 4410", "VA Thu Trang Fashion", "9219000044102", "Active", "01/07/2026 15:50"],
-      ["12", "grt_6K4FD19M", "BIDV", "CTY CP HOANG GIA", "2151 •••• 6678", "VA Hoang Gia B2B", "1289210066789", "Active", "28/06/2026 10:05"],
-      ["13", "grt_8P9WX33L", "Techcombank", "BUI MY LINH", "1903 •••• 1129", "VA My Linh Studio", "1903110011299", "Active", "25/06/2026 17:35"],
-      ["14", "grt_2M7VT88D", "MB Bank", "CTY TNHH A CHAU", "0682 •••• 9988", "VA A Chau Logistics", "9901060099884", "Active", "22/06/2026 08:50"],
-      ["15", "grt_4H9BN11Q", "Sacombank", "LY KIM NGAN", "0603 •••• 7712", "VA Kim Ngan Jewelry", "9602060077123", "Active", "20/06/2026 13:15"],
+      ["1", "va_98681200", "grt_6P3RF82K", "ACB", "CTY TNHH NAM VIET", "2167 •••• 3306", "VA Thanh toan Nam Viet", "9868120001842", "Active", "23/07/2026 17:03"],
+      ["2", "va_97043600", "grt_9Q4LC73A", "Vietcombank", "CTY CP NOVA RETAIL", "1028 •••• 1098", "VA Nova Store HCM", "9704360028471", "Active", "22/07/2026 09:34"],
+      ["3", "va_19036900", "grt_4T7MD20Q", "Techcombank", "CTY CP MINH LONG", "1903 •••• 4812", "VA Thu ho Minh Long", "1903690015820", "Paused", "20/07/2026 14:15"],
+      ["4", "va_12891000", "grt_8L2KP91N", "BIDV", "NGUYEN MINH ANH", "2111 •••• 9024", "VA Minh Anh Personal", "1289100042763", "Inactive", "18/07/2026 11:20"],
+      ["5", "va_99018200", "grt_1A9HC63V", "MB Bank", "PHAM THUY LINH", "0681 •••• 6721", "VA Linh Pham Store", "9901820038194", "Active", "15/07/2026 08:45"],
+      ["6", "va_96024100", "grt_2K8NP14D", "Sacombank", "TRAN HOANG LONG", "0602 •••• 2180", "VA Long Tran Online", "9602410082736", "Active", "12/07/2026 16:30"],
+      ["7", "va_96881000", "grt_5M3KP82N", "VietinBank", "NGUYEN VAN DUC", "1018 •••• 5541", "VA Van Duc Trading", "9688100055410", "Active", "10/07/2026 14:10"],
+      ["8", "va_19038800", "grt_7B9RT14H", "Techcombank", "CTY CP TRUONG SON", "1902 •••• 8812", "VA Thu ho Truong Son", "1903880088120", "Active", "08/07/2026 09:25"],
+      ["9", "va_98421500", "grt_3C8VL90P", "VPBank", "TRINH BAO NGOC", "1542 •••• 9901", "VA Ngoc Trinh Shop", "9842150099015", "Paused", "05/07/2026 16:40"],
+      ["10", "va_97041900", "grt_9X2NY55T", "Vietcombank", "CTY TNHH SAI GON TECH", "1019 •••• 3342", "VA Saigon Tech Main", "9704190033421", "Active", "03/07/2026 11:15"],
+      ["11", "va_92190000", "grt_1L8QP42K", "TPBank", "VU THU TRANG", "0219 •••• 4410", "VA Thu Trang Fashion", "9219000044102", "Active", "01/07/2026 15:50"],
+      ["12", "va_12892100", "grt_6K4FD19M", "BIDV", "CTY CP HOANG GIA", "2151 •••• 6678", "VA Hoang Gia B2B", "1289210066789", "Active", "28/06/2026 10:05"],
+      ["13", "va_19031100", "grt_8P9WX33L", "Techcombank", "BUI MY LINH", "1903 •••• 1129", "VA My Linh Studio", "1903110011299", "Active", "25/06/2026 17:35"],
+      ["14", "va_99010600", "grt_2M7VT88D", "MB Bank", "CTY TNHH A CHAU", "0682 •••• 9988", "VA A Chau Logistics", "9901060099884", "Active", "22/06/2026 08:50"],
+      ["15", "va_96020600", "grt_4H9BN11Q", "Sacombank", "LY KIM NGAN", "0603 •••• 7712", "VA Kim Ngan Jewelry", "9602060077123", "Active", "20/06/2026 13:15"],
     ],
   },
   BalanceHook: {
-    title: "Lịch sử thông báo biến động số dư (Balance Hook)",
+    title: "Danh sách",
     columns: ["STT", "Txn ID", "GrantID", "Reference", "Transaction", "Ngân hàng", "Số tài khoản", "Tên tài khoản", "Số tiền", "Nội dung", "Thông báo", "Thời gian"],
     rows: [
       ["1", "txn_981240", "grt_8L2KP91N", "FT260724164210", "BH20481", "Techcombank", "1903 •••• 4812", "Nguyễn Minh Anh", "+₫482,500", "Tiền vào: Nhan thanh toan BH20481", "Delivered", "24/07/2026 16:42:10"],
@@ -490,7 +514,7 @@ const usageTableData: Record<AnalyticsTab, { title: string; columns: string[]; r
     ],
   },
   Transfer: {
-    title: "Lịch sử lệnh chuyển tiền (Transfer)",
+    title: "Danh sách",
     columns: ["STT", "transaction id", "grantID", "Reference", "Ngân hàng gửi", "Tên người gửi", "STK gửi", "Ngân hàng nhận", "Tên người nhận", "STK nhận", "Số tiền", "Nội dung", "Trạng thái", "Thời gian"],
     rows: [
       ["1", "trf_82MP91", "grt_2K8NP14D", "FT260724161208", "BIDV", "Trần Hoàng Long", "2111 •••• 9024", "Techcombank", "Nguyễn Minh Anh", "1903 •••• 4812", "₫5,200,000", "Thanh toan hop dong 1842", "Success", "24/07/2026 16:12:08"],
@@ -521,7 +545,7 @@ const usageTableData: Record<AnalyticsTab, { title: string; columns: string[]; r
     ],
   },
   Invoice: {
-    title: "Danh sách hoá đơn",
+    title: "Danh sách",
     columns: ["Invoice ID", "Grant ID", "Người mua", "MST", "Giá trị", "Ngày hoá đơn", "Trạng thái", "Cập nhật"],
     rows: [
       ["inv_2026_1842", "grt_4T7MD20Q", "Công ty CP Minh Long", "0317849201", "₫24,860,000", "24/07/2026", "Issued", "24/07 · 16:17"],
@@ -531,7 +555,7 @@ const usageTableData: Record<AnalyticsTab, { title: string; columns: string[]; r
     ],
   },
   Deeplink: {
-    title: "Danh sách giao dịch Deeplink",
+    title: "Danh sách",
     columns: ["STT", "Request ID", "Ngân hàng", "Tên tài khoản", "Số tiền", "Nội dung", "Direct URL", "Status", "Ngày tạo"],
     rows: [
       ["1", "req_DLK98124", "Techcombank", "Nguyễn Minh Anh", "₫2,500,000", "Thanh toan don hang #10928", "https://dl.bankhub.dev/tcb/pay?id=98124", "Success", "24/07/2026 17:04:12"],
@@ -570,16 +594,16 @@ type ChartTimeRange = "24h" | "7d" | "jul26" | "jun26" | "may26";
 function getChartData(tab: AnalyticsTab, range: ChartTimeRange) {
   const labelsMap: Record<AnalyticsTab, { title: string; primary: string; secondary: string; unit: string }> = {
     Connection: { title: "Grant thêm mới", primary: "Grant mới", secondary: "Pause / Delete", unit: "grant" },
-    Transaction: { title: "Xu hướng giao dịch Transaction", primary: "GD thành công", secondary: "GD thất bại", unit: "giao dịch" },
-    QRPay: { title: "Xu hướng thanh toán QR Pay", primary: "Thành công", secondary: "Hủy / Hết hạn", unit: "giao dịch" },
-    VirtualAccount: { title: "Xu hướng tạo Virtual Account", primary: "Tạo mới", secondary: "Xóa", unit: "giao dịch" },
-    BalanceHook: { title: "Xu hướng thông báo Balance Hook", primary: "Webhook thành công", secondary: "Lỗi / Retry", unit: "thông báo" },
-    Transfer: { title: "Xu hướng chuyển tiền Transfer", primary: "Chuyển tiền thành công", secondary: "Thất bại", unit: "giao dịch" },
-    Deeplink: { title: "Xu hướng tạo Deeplink", primary: "Deeplink thành công", secondary: "Thất bại", unit: "lượt" },
-    Identity: { title: "Xu hướng gọi API Identity", primary: "Thành công", secondary: "Lỗi", unit: "calls" },
-    Balance: { title: "Xu hướng tra cứu Balance", primary: "Thành công", secondary: "Lỗi", unit: "calls" },
-    eKYC: { title: "Xu hướng xác thực eKYC", primary: "Thành công", secondary: "Lỗi", unit: "lượt" },
-    Invoice: { title: "Xu hướng xuất Invoice", primary: "Hợp lệ", secondary: "Hủy", unit: "hóa đơn" },
+    Transaction: { title: "Trạng thái Request", primary: "Request thành công", secondary: "Request thất bại", unit: "giao dịch" },
+    QRPay: { title: "Trạng thái QR Pay", primary: "Thành công", secondary: "Thất bại", unit: "giao dịch" },
+    VirtualAccount: { title: "Trạng thái Virtual Account", primary: "Hoạt động", secondary: "Ngừng hoạt động", unit: "giao dịch" },
+    BalanceHook: { title: "Trạng thái Balance Hook", primary: "Thành công", secondary: "Thát bại", unit: "thông báo" },
+    Transfer: { title: "Trạng thái Transfer", primary: "Thành công", secondary: "Thất bại", unit: "giao dịch" },
+    Deeplink: { title: "Trạng thái Deeplink", primary: "Thành công", secondary: "Thất bại", unit: "lượt" },
+    Identity: { title: "Trạng thái Identity", primary: "Thành công", secondary: "Lỗi", unit: "calls" },
+    Balance: { title: "Trạng thái Balance", primary: "Thành công", secondary: "Lỗi", unit: "calls" },
+    eKYC: { title: "Trạng thái eKYC", primary: "Thành công", secondary: "Lỗi", unit: "lượt" },
+    Invoice: { title: "Trạng thái Invoice", primary: "Hợp lệ", secondary: "Hủy", unit: "hóa đơn" },
   };
 
   const meta = labelsMap[tab] || labelsMap.Transaction;
@@ -746,7 +770,7 @@ function AnalyticsPanel({ tab, search, onSearch, timeFilter, onTimeFilter, page,
             <div key={metric.label} title={`${metric.label}: ${valStr}`}>
               <div className="kpi-top-row">
                 <span>{metric.label}</span>
-                {metric.change && <small className={metric.tone}>↗ {metric.change}</small>}
+                {metric.change && <small className={metric.tone}>{metric.change}</small>}
               </div>
               <strong>
                 <KpiValue value={metric.value} unit={metric.unit} />
@@ -797,10 +821,11 @@ function AnalyticsPanel({ tab, search, onSearch, timeFilter, onTimeFilter, page,
     </section>
   );
 }
-
 export default function Home() {
+  const [teamsState, setTeamsState] = useState<TeamData[]>(teams);
   const [selectedTeam, setSelectedTeam] = useState(teams[0]);
   const [selectedApp, setSelectedApp] = useState(teams[0].apps[0]);
+  const [membersState, setMembersState] = useState<TeamMember[]>(initialMembers);
   const [appMenuOpen, setAppMenuOpen] = useState(false);
   const [teamMenuOpen, setTeamMenuOpen] = useState(false);
   const [currentLang, setCurrentLang] = useState(languages[0]);
@@ -820,13 +845,14 @@ export default function Home() {
   const [mobileMenu, setMobileMenu] = useState(false);
   const [usageExpanded, setUsageExpanded] = useState(true);
   const [usageView, setUsageView] = useState<AnalyticsTab>("Transaction");
+  const [billingExpanded, setBillingExpanded] = useState(true);
+  const [billingView, setBillingView] = useState<"current" | "history">("current");
   const [sidebarWidth, setSidebarWidth] = useState(286);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [resizingSidebar, setResizingSidebar] = useState(false);
 
-  // Active enabled scopes for the current onboarded app
-  const [enabledScopes, setEnabledScopes] = useState<AnalyticsTab[]>([
-    "Transaction", "QRPay", "Deeplink"
-  ]);
+  // Active enabled scopes for the current onboarded app (starts empty by default)
+  const [enabledScopes, setEnabledScopes] = useState<AnalyticsTab[]>([]);
 
   // Log records state for dynamic sandbox testing
   const [logRecordsState, setLogRecordsState] = useState<LogRecord[]>(logRecords);
@@ -835,7 +861,7 @@ export default function Home() {
     const reqId = `req_${scope.slice(0, 3).toUpperCase()}${Math.floor(10000 + Math.random() * 90000)}`;
     const now = new Date();
     const timeStr = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')} ${now.getDate().toString().padStart(2, '0')}/${(now.getMonth() + 1).toString().padStart(2, '0')}/${now.getFullYear()}`;
-    
+
     // 1. Add log entry
     const newLog: LogRecord = {
       requestId: reqId,
@@ -914,15 +940,16 @@ export default function Home() {
           break;
 
         case "VirtualAccount":
-          // columns: ["STT", "Mã VA", "Grant ID", "Ngân hàng", "Tên tài khoản", "Số tài khoản VA", "Tổng tiền thu", "Trạng thái", "Thời gian tạo"]
+          // columns: ["STT", "VA ID", "Grant ID", "Ngân hàng", "Tên tài khoản", "STK gốc", "Tên VA", "VA", "Trạng thái", "Ngày tạo"]
           newRow = [
             nextStt,
             `va_${reqId.slice(4)}`,
             "grt_8L2KP91N",
             bankName,
             userName,
+            `1903 •••• ${random4}`,
+            `VA ${userName}`,
             `99021${Math.floor(100000 + Math.random() * 900000)}`,
-            amountFormatted,
             "Active",
             timeStr
           ];
@@ -1036,7 +1063,7 @@ export default function Home() {
   const pageCount = Math.max(1, Math.ceil(filteredRows.length / pageSize));
   const currentPage = Math.min(page, pageCount);
   const paginatedRows = filteredRows.slice((currentPage - 1) * pageSize, currentPage * pageSize);
-  const isDeveloperPage = activeNav === "API keys" || activeNav === "Direct URL" || activeNav === "Webhooks";
+  const isDeveloperPage = activeNav === "Keys" || activeNav === "API keys" || activeNav === "RedirectURI/IP" || activeNav === "RedirectURI" || activeNav === "RedirectURL/IP" || activeNav === "API" || activeNav === "Direct URL" || activeNav === "Webhooks";
 
   function showNotice(msg: string) {
     setNotice(msg);
@@ -1061,42 +1088,162 @@ export default function Home() {
   }
 
   return (
-    <div className={`console-shell ${resizingSidebar ? "resizing-sidebar" : ""}`} style={{ "--sidebar-width": `${sidebarWidth}px` } as CSSProperties}>
-      <aside className={`sidebar ${mobileMenu ? "mobile-open" : ""}`}>
-        <div className="brand-row" style={{ position: "relative", cursor: "pointer", paddingRight: 8 }} onClick={() => setAppMenuOpen(!appMenuOpen)}>
-          <a className="brand" href="#" onClick={e => e.preventDefault()} style={{ flex: 1, display: "flex", alignItems: "center", gap: 10, textDecoration: "none" }}>
-            <span className="brand-mark"><i /><i /><i /></span>
-            <span style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-              <strong>{selectedApp.name}</strong>
-            </span>
-            <span className="switcher-chevrons" style={{ marginLeft: "auto", fontSize: 12, color: "var(--muted)", lineHeight: 1 }}>⌃<br />⌄</span>
-          </a>
-          <button className="sidebar-collapse" onClick={(e) => { e.stopPropagation(); setMobileMenu(false); }}>«</button>
-          {appMenuOpen && <div className="app-menu" style={{ top: "100%", left: 10, width: "calc(100% - 20px)", zIndex: 10 }} onClick={e => e.stopPropagation()}><div className="app-menu-heading"><span>Apps của {selectedTeam.name}</span><button>＋ Tạo App</button></div>{selectedTeam.apps.map(app => <button className={app.id === selectedApp.id ? "selected" : ""} key={app.id} onClick={() => { setSelectedApp(app); setAppMenuOpen(false); }}><span className="app-avatar" style={{ background: app.color }}>{app.short}</span><span><strong>{app.name}</strong><small>{app.environment} · {app.id}</small></span>{app.id === selectedApp.id && <b>✓</b>}</button>)}</div>}
+    <div className={`console-shell ${resizingSidebar ? "resizing-sidebar" : ""}`} style={{ "--sidebar-width": `${sidebarCollapsed ? 64 : sidebarWidth}px` } as CSSProperties}>
+      <aside className={`sidebar ${sidebarCollapsed ? "collapsed" : ""} ${mobileMenu ? "mobile-open" : ""}`}>
+        <div className="brand-row" style={{ display: "flex", alignItems: "center", justifyContent: sidebarCollapsed ? "center" : "space-between", padding: sidebarCollapsed ? "0 8px" : "0 18px" }}>
+          {!sidebarCollapsed ? (
+            <>
+              <a
+                className="brand"
+                href="#"
+                onClick={e => {
+                  e.preventDefault();
+                  setActiveNav("Tổng quan");
+                  setBillingView("current");
+                  if (mobileMenu) setMobileMenu(false);
+                }}
+                style={{ flex: 1, display: "flex", alignItems: "center", gap: 10, textDecoration: "none", cursor: "pointer" }}
+                title="Quay về trang Tổng quan"
+              >
+                <span className="brand-mark"><i /><i /><i /></span>
+                <span style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                  <strong>Cas Console</strong>
+                </span>
+              </a>
+              <button
+                className="sidebar-collapse"
+                title="Thu gọn menu (Collapse)"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setSidebarCollapsed(true);
+                  if (mobileMenu) setMobileMenu(false);
+                }}
+              >
+                «
+              </button>
+            </>
+          ) : (
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%", padding: "0 2px" }}>
+              <a
+                href="#"
+                onClick={e => {
+                  e.preventDefault();
+                  setActiveNav("Tổng quan");
+                  setBillingView("current");
+                  if (mobileMenu) setMobileMenu(false);
+                }}
+                title="Quay về trang Tổng quan"
+                style={{ textDecoration: "none", cursor: "pointer", display: "inline-flex" }}
+              >
+                <span className="brand-mark" style={{ width: 26, height: 26, padding: 5 }}><i /><i /><i /></span>
+              </a>
+              <button
+                className="sidebar-collapse"
+                title="Mở rộng menu (Expand)"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setSidebarCollapsed(false);
+                }}
+                style={{ width: 24, height: 24, margin: 0, fontSize: 14 }}
+              >
+                »
+              </button>
+            </div>
+          )}
         </div>
-        <nav className="sidebar-nav">{navGroups.map((group, i) => <div className="nav-group" key={i}>{group.label && <p>{group.label}</p>}{group.items.map(item => <div className="nav-item-wrap" key={item.label}>
-          <button className={activeNav === item.label ? "active" : ""} onClick={() => { if (item.label === "Usage") { if (activeNav === "Usage") setUsageExpanded(!usageExpanded); else { setActiveNav("Usage"); setUsageExpanded(true); } } else { setActiveNav(item.label); setMobileMenu(false); } }}><span>{item.icon}</span>{item.label}{item.label === "Usage" && <small className={`nav-arrow ${usageExpanded ? "open" : ""}`}>⌄</small>}</button>
-          {item.label === "Usage" && usageExpanded && <div className="usage-subnav">
-            {visibleUsageTabs.filter(tab => enabledScopes.includes(tab)).map(tab => <button className={activeNav === "Usage" && usageView === tab ? "active" : ""} key={tab} onClick={() => { setActiveNav("Usage"); setUsageView(tab); setAnalyticsTab(tab); setSearch(""); setGrantFilter("Tất cả Grant"); setStatusFilter("Tất cả trạng thái"); setPage(1); setMobileMenu(false); }}>{usageTabLabel(tab)}</button>)}
-          </div>}
-        </div>)}</div>)}
+        <nav className="sidebar-nav">
+          {navGroups.map((group, i) => (
+            <div className="nav-group" key={i}>
+              {group.label && <p>{group.label}</p>}
+              {group.items.map(item => (
+                <div className="nav-item-wrap" key={item.label}>
+                  <button
+                    className={activeNav === item.label ? "active" : ""}
+                    title={sidebarCollapsed ? item.label : undefined}
+                    onClick={() => {
+                      if (sidebarCollapsed) {
+                        setActiveNav(item.label);
+                        if (item.label === "Usage") setUsageExpanded(true);
+                        if (item.label === "Billing") setBillingExpanded(true);
+                        return;
+                      }
+                      if (item.label === "Usage") {
+                        if (activeNav === "Usage") setUsageExpanded(!usageExpanded);
+                        else { setActiveNav("Usage"); setUsageExpanded(true); }
+                      } else if (item.label === "Billing") {
+                        if (activeNav === "Billing") setBillingExpanded(!billingExpanded);
+                        else { setActiveNav("Billing"); setBillingExpanded(true); setBillingView("current"); }
+                      } else {
+                        setActiveNav(item.label);
+                        setMobileMenu(false);
+                      }
+                    }}
+                  >
+                    <span className="nav-icon">{item.icon}</span>
+                    <span className="nav-label">{item.label}</span>
+                    {item.label === "Usage" && <small className={`nav-arrow ${usageExpanded ? "open" : ""}`}>⌄</small>}
+                    {item.label === "Billing" && <small className={`nav-arrow ${billingExpanded ? "open" : ""}`}>⌄</small>}
+                  </button>
+                  {item.label === "Usage" && usageExpanded && !sidebarCollapsed && (
+                    <div className="usage-subnav">
+                      {visibleUsageTabs.map(tab => (
+                        <button
+                          className={activeNav === "Usage" && usageView === tab ? "active" : ""}
+                          key={tab}
+                          onClick={() => {
+                            setActiveNav("Usage");
+                            setUsageView(tab);
+                            setAnalyticsTab(tab);
+                            setSearch("");
+                            setGrantFilter("Tất cả Grant");
+                            setStatusFilter("Tất cả trạng thái");
+                            setPage(1);
+                            setMobileMenu(false);
+                          }}
+                        >
+                          {usageTabLabel(tab)}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  {item.label === "Billing" && billingExpanded && !sidebarCollapsed && (
+                    <div className="usage-subnav">
+                      <button className={activeNav === "Billing" && billingView === "current" ? "active" : ""} onClick={() => { setActiveNav("Billing"); setBillingView("current"); setMobileMenu(false); }}>
+                        Hóa đơn hiện tại
+                      </button>
+                      <button className={activeNav === "Billing" && billingView === "history" ? "active" : ""} onClick={() => { setActiveNav("Billing"); setBillingView("history"); setMobileMenu(false); }}>
+                        Lịch sử thanh toán
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          ))}
           <div className="nav-group utility-nav">
-            <button onClick={() => { showNotice("Đã mở tài liệu Cas"); setMobileMenu(false); }}><span>▤</span>Tài liệu</button>
-            <button onClick={() => { showNotice("Đã mở trung tâm hỗ trợ"); setMobileMenu(false); }}><span>◉</span>Hỗ trợ</button>
+            <button title={sidebarCollapsed ? "Tài liệu" : undefined} onClick={() => { showNotice("Đã mở tài liệu Cas"); setMobileMenu(false); }}>
+              <span className="nav-icon">▤</span><span className="nav-label">Tài liệu</span>
+            </button>
+            <button title={sidebarCollapsed ? "Hỗ trợ" : undefined} onClick={() => { showNotice("Đã mở trung tâm hỗ trợ"); setMobileMenu(false); }}>
+              <span className="nav-icon">◉</span><span className="nav-label">Hỗ trợ</span>
+            </button>
           </div>
         </nav>
-        <div className="sidebar-footer" style={{ position: "relative" }}>
-          {teamMenuOpen && <div className="app-menu" style={{ bottom: "100%", top: "auto", left: 10, width: "calc(100% - 20px)", marginBottom: 10, zIndex: 10 }}><div className="app-menu-heading"><span>Teams của bạn</span><button>＋ Tạo Team</button></div>{teams.map(team => <button className={team.id === selectedTeam.id ? "selected" : ""} key={team.id} onClick={() => { setSelectedTeam(team); setSelectedApp(team.apps[0]); setTeamMenuOpen(false); }}><span className="app-avatar" style={{ background: "#4a5568" }}>{team.short}</span><span><strong>{team.name}</strong><small>Vai trò: {team.role}</small></span>{team.id === selectedTeam.id && <b>✓</b>}</button>)}</div>}
-          <div className="vendor-profile" style={{ cursor: "pointer" }} onClick={() => setTeamMenuOpen(!teamMenuOpen)}>
-            <span className="profile-avatar">{selectedTeam.short}</span>
-            <span><small>TEAM</small><strong>{selectedTeam.name}</strong></span>
-            <button style={{ pointerEvents: "none" }}>•••</button>
-          </div>
-        </div>
-        <div className="sidebar-resizer" role="separator" aria-label="Thay đổi chiều rộng menu" aria-orientation="vertical" onPointerDown={e => { setResizingSidebar(true); e.currentTarget.setPointerCapture(e.pointerId); }} onPointerMove={e => { if (resizingSidebar) setSidebarWidth(Math.min(390, Math.max(220, e.clientX))); }} onPointerUp={e => { setResizingSidebar(false); e.currentTarget.releasePointerCapture(e.pointerId); }} onPointerCancel={() => setResizingSidebar(false)} />
+        {!sidebarCollapsed && (
+          <div
+            className="sidebar-resizer"
+            role="separator"
+            aria-label="Thay đổi chiều rộng menu"
+            aria-orientation="vertical"
+            onPointerDown={e => { setResizingSidebar(true); e.currentTarget.setPointerCapture(e.pointerId); }}
+            onPointerMove={e => { if (resizingSidebar) setSidebarWidth(Math.min(390, Math.max(220, e.clientX))); }}
+            onPointerUp={e => { setResizingSidebar(false); e.currentTarget.releasePointerCapture(e.pointerId); }}
+            onPointerCancel={() => setResizingSidebar(false)}
+          />
+        )}
       </aside>
 
-      <div className="workspace" onClick={() => { if (appMenuOpen) setAppMenuOpen(false); if (teamMenuOpen) setTeamMenuOpen(false); if (langMenuOpen) setLangMenuOpen(false); if (userMenuOpen) setUserMenuOpen(false); }}>
+      <div className="workspace" onClick={() => { if (appMenuOpen) setAppMenuOpen(false); if (teamMenuOpen) setTeamMenuOpen(false); if (userMenuOpen) setUserMenuOpen(false); }}>
         <header className="topbar">
           <button className="mobile-trigger" onClick={() => setMobileMenu(true)}>☰</button>
           <div className="crumbs">
@@ -1104,63 +1251,215 @@ export default function Home() {
             <b>/</b>
             <strong>{activeNav}</strong>
             {activeNav === "Usage" && <><b>/</b><strong>{usageView === "Connection" ? "Grant" : usageView === "VirtualAccount" ? "Virtual Account" : usageView === "BalanceHook" ? "Balance Hook" : usageView}</strong></>}
+            {activeNav === "Billing" && <><b>/</b><strong>{billingView === "current" ? "Hóa đơn hiện tại" : "Lịch sử thanh toán"}</strong></>}
           </div>
           <div className="top-actions">
-            <button className="status-pill" onClick={() => showNotice("Hệ thống Open Banking hoạt động bình thường ( uptime 99.99% )")}>
-              <i />Hệ thống ổn định
-            </button>
-            <button className="icon-button" title="Tìm kiếm nhanh (Cmd+K)" onClick={(e) => { e.stopPropagation(); setSearchModalOpen(true); }}>⌕</button>
-
-            {/* Language Selector Dropdown */}
-            <div className="lang-selector-wrap" onClick={e => e.stopPropagation()}>
-              <button className="language-selector-btn" onClick={() => { setLangMenuOpen(!langMenuOpen); setUserMenuOpen(false); }}>
-                <span>{currentLang.flag}</span>
-                <span>{currentLang.code}</span>
-                <span style={{ fontSize: 11, opacity: 0.6 }}>⌄</span>
+            {/* Team Selector Dropdown */}
+            <div className="team-selector-wrap" style={{ position: "relative" }} onClick={e => e.stopPropagation()}>
+              <button
+                style={{
+                  border: "1px solid var(--line)",
+                  borderRadius: "6px",
+                  height: "32px",
+                  padding: "0 10px",
+                  background: "white",
+                  cursor: "pointer",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "6px",
+                  fontSize: "12px",
+                  fontWeight: 600,
+                  color: "var(--ink)",
+                  boxSizing: "border-box",
+                }}
+                onClick={() => { setTeamMenuOpen(!teamMenuOpen); setAppMenuOpen(false); setUserMenuOpen(false); }}
+              >
+                <span style={{ color: "var(--muted)", fontSize: "11px", fontWeight: 500 }}>Team:</span>
+                <strong>{selectedTeam.name}</strong>
+                <span style={{ fontSize: "10px", color: "var(--muted)" }}>⌄</span>
               </button>
-              {langMenuOpen && (
-                <div className="lang-menu">
-                  {languages.map(lang => (
+              {teamMenuOpen && (
+                <div className="app-menu" style={{ top: "calc(100% + 4px)", right: 0, left: "auto", width: 230, zIndex: 20, borderRadius: 8 }}>
+                  <div className="app-menu-heading">
+                    <span>Teams của bạn</span>
+                    <button onClick={() => { setActiveNav("Tạo một team mới"); setTeamMenuOpen(false); }}>Tạo Team</button>
+                  </div>
+                  {teamsState.map(team => (
                     <button
-                      key={lang.code}
-                      className={lang.code === currentLang.code ? "selected" : ""}
+                      className={team.id === selectedTeam.id ? "selected" : ""}
+                      key={team.id}
                       onClick={() => {
-                        setCurrentLang(lang);
-                        setLangMenuOpen(false);
-                        showNotice(`Đã chuyển ngôn ngữ sang ${lang.name}`);
+                        setSelectedTeam(team);
+                        setSelectedApp(team.apps[0]);
+                        setTeamMenuOpen(false);
                       }}
                     >
-                      <span>{lang.flag}</span>
-                      <span>{lang.name}</span>
-                      {lang.code === currentLang.code && <span className="check">✓</span>}
+                      <span className="app-avatar" style={{ background: "#4a5568" }}>{team.short}</span>
+                      <span>
+                        <strong>{team.name}</strong>
+                        <small>Vai trò: {team.role}</small>
+                      </span>
+                      {team.id === selectedTeam.id && <b>✓</b>}
                     </button>
                   ))}
                 </div>
               )}
             </div>
 
-            {/* User Profile Avatar & Menu */}
+            {/* App Selector Dropdown */}
+            <div className="app-selector-wrap" style={{ position: "relative" }} onClick={e => e.stopPropagation()}>
+              <button
+                style={{
+                  border: "1px solid var(--line)",
+                  borderRadius: "6px",
+                  height: "32px",
+                  padding: "0 10px",
+                  background: "white",
+                  cursor: "pointer",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "6px",
+                  fontSize: "12px",
+                  fontWeight: 600,
+                  color: "var(--ink)",
+                  boxSizing: "border-box",
+                }}
+                onClick={() => { setAppMenuOpen(!appMenuOpen); setTeamMenuOpen(false); setUserMenuOpen(false); }}
+              >
+                <span style={{ color: "var(--muted)", fontSize: "11px", fontWeight: 500 }}>App:</span>
+                <span style={{ width: 7, height: 7, borderRadius: "50%", background: selectedApp.color }} />
+                <strong>{selectedApp.name}</strong>
+                <span style={{ fontSize: "10px", color: "var(--muted)" }}>⌄</span>
+              </button>
+              {appMenuOpen && (
+                <div className="app-menu" style={{ top: "calc(100% + 4px)", right: 0, left: "auto", width: 250, zIndex: 20, borderRadius: 8 }}>
+                  <div className="app-menu-heading">
+                    <span>Apps của {selectedTeam.name}</span>
+                    <button onClick={() => { setActiveNav("Tạo ứng dụng mới"); setAppMenuOpen(false); }}>Tạo App</button>
+                  </div>
+                  {selectedTeam.apps.map(app => (
+                    <button
+                      className={app.id === selectedApp.id ? "selected" : ""}
+                      key={app.id}
+                      onClick={() => {
+                        setSelectedApp(app);
+                        setAppMenuOpen(false);
+                      }}
+                    >
+                      <span className="app-avatar" style={{ background: app.color }}>{app.short}</span>
+                      <span>
+                        <strong>{app.name}</strong>
+                        <small>{app.environment} · {app.id}</small>
+                      </span>
+                      {app.id === selectedApp.id && <b>✓</b>}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* User Profile (Email Only) */}
             <div className="user-avatar-wrap" onClick={e => e.stopPropagation()}>
-              <button className="user-avatar" style={{ border: 0, cursor: "pointer" }} onClick={() => { setUserMenuOpen(!userMenuOpen); setLangMenuOpen(false); }}>
-                MN
+              <button
+                className="user-profile-btn"
+                style={{
+                  border: "1px solid var(--line)",
+                  borderRadius: "6px",
+                  height: "32px",
+                  padding: "0 10px",
+                  background: "white",
+                  cursor: "pointer",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "6px",
+                  boxSizing: "border-box",
+                }}
+                onClick={() => { setUserMenuOpen(!userMenuOpen); setAppMenuOpen(false); setTeamMenuOpen(false); }}
+              >
+                <span style={{ fontSize: "12.5px", fontWeight: 600, color: "var(--ink)" }}>minh.nguyen@vietfin.vn</span>
+                <span style={{ fontSize: "10px", color: "var(--muted)" }}>⌄</span>
               </button>
               {userMenuOpen && (
-                <div className="user-menu-popover">
+                <div className="user-menu-popover" style={{ top: "calc(100% + 4px)", right: 0, borderRadius: 8, width: 220 }}>
                   <div className="user-menu-header">
-                    <span className="user-avatar" style={{ width: 34, height: 34 }}>MN</span>
                     <div>
                       <strong>Minh Nguyễn</strong>
                       <small>minh.nguyen@vietfin.vn</small>
                       <span className="badge">Super Admin</span>
                     </div>
                   </div>
-                  <button onClick={() => { showNotice("Đã mở trang Hồ sơ cá nhân"); setUserMenuOpen(false); }}>👤 Hồ sơ cá nhân</button>
-                  <button onClick={() => { showNotice("Đã mở Cài đặt bảo mật & 2FA"); setUserMenuOpen(false); }}>🔑 Cài đặt bảo mật & 2FA</button>
-                  <button onClick={() => { showNotice("Đã mở Nhật ký truy cập"); setUserMenuOpen(false); }}>📜 Nhật ký hoạt động</button>
+                  <button onClick={() => { setActiveNav("Thiết lập Team"); setUserMenuOpen(false); }}>🏢 Thiết lập Team</button>
+                  <button onClick={() => { setActiveNav("Tạo một team mới"); setUserMenuOpen(false); }}>➕ Tạo một team mới</button>
+                  <button onClick={() => { setActiveNav("Tạo ứng dụng mới"); setUserMenuOpen(false); }}>🚀 Tạo ứng dụng mới</button>
                   <div style={{ borderTop: "1px solid var(--line)", margin: "4px 0" }} />
+                  <button onClick={() => { showNotice("Đã mở trang Hồ sơ cá nhân"); setUserMenuOpen(false); }}>👤 Hồ sơ cá nhân</button>
                   <button style={{ color: "var(--red)" }} onClick={() => { showNotice("Mô phỏng đăng xuất thành công"); setUserMenuOpen(false); }}>🚪 Đăng xuất</button>
                 </div>
               )}
+            </div>
+
+            {/* Language Switch (Only Vietnam and English flags, no dropdown icon) */}
+            <div
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                background: "white",
+                border: "1px solid var(--line)",
+                borderRadius: "6px",
+                height: "32px",
+                padding: "0 3px",
+                gap: "2px",
+                boxSizing: "border-box",
+              }}
+            >
+              <button
+                style={{
+                  border: "none",
+                  background: currentLang.code === "VI" ? "rgba(92, 76, 225, 0.12)" : "transparent",
+                  borderRadius: "4px",
+                  height: "24px",
+                  padding: "0 5px",
+                  cursor: "pointer",
+                  fontSize: "14px",
+                  lineHeight: 1,
+                  display: "inline-flex",
+                  alignItems: "center",
+                  opacity: currentLang.code === "VI" ? 1 : 0.4,
+                  transition: "all 0.15s",
+                }}
+                title="Tiếng Việt"
+                onClick={() => {
+                  const viLang = languages.find(l => l.code === "VI") || languages[0];
+                  setCurrentLang(viLang);
+                  showNotice("Đã chuyển ngôn ngữ sang Tiếng Việt");
+                }}
+              >
+                🇻🇳
+              </button>
+              <button
+                style={{
+                  border: "none",
+                  background: currentLang.code === "EN" ? "rgba(92, 76, 225, 0.12)" : "transparent",
+                  borderRadius: "4px",
+                  height: "24px",
+                  padding: "0 5px",
+                  cursor: "pointer",
+                  fontSize: "14px",
+                  lineHeight: 1,
+                  display: "inline-flex",
+                  alignItems: "center",
+                  opacity: currentLang.code === "EN" ? 1 : 0.4,
+                  transition: "all 0.15s",
+                }}
+                title="English"
+                onClick={() => {
+                  const enLang = languages.find(l => l.code === "EN") || languages[1];
+                  setCurrentLang(enLang);
+                  showNotice("Switched language to English");
+                }}
+              >
+                🇺🇸
+              </button>
             </div>
           </div>
         </header>
@@ -1172,22 +1471,110 @@ export default function Home() {
           ) : activeNav === "Usage" ? (
             <AnalyticsPanel tab={analyticsTab} search={search} onSearch={setSearch} timeFilter={timeFilter} onTimeFilter={setTimeFilter} page={page} setPage={setPage} pageSize={pageSize} setPageSize={setPageSize} showNotice={showNotice} />
           ) : activeNav === "Billing" ? (
-            <UsageTotal onSelectTab={tab => { if (tab === "Connection") { setActiveNav("Grants"); setAnalyticsTab("Connection"); } else { setActiveNav("Usage"); setUsageExpanded(true); setUsageView(tab); setAnalyticsTab(tab); } setPage(1); }} showNotice={showNotice} />
+            <UsageTotal
+              billingView={billingView}
+              onNavigateHistory={() => { setBillingView("history"); setBillingExpanded(true); }}
+              onNavigateCurrent={() => { setBillingView("current"); setBillingExpanded(true); }}
+              onSelectTab={tab => { if (tab === "Connection") { setActiveNav("Grants"); setAnalyticsTab("Connection"); } else { setActiveNav("Usage"); setUsageExpanded(true); setUsageView(tab); setAnalyticsTab(tab); } setPage(1); }}
+              showNotice={showNotice}
+            />
           ) : activeNav === "Tổng quan" ? (
-            <OnboardingScreen enabledScopes={enabledScopes} setEnabledScopes={setEnabledScopes} onNavigate={setActiveNav} showNotice={showNotice} />
-          ) : activeNav === "Userguide" ? (
-            <UserguideScreen enabledScopes={enabledScopes} showNotice={showNotice} onRunTest={runTestApiCall} />
+            <IntroOverviewScreen onNavigate={setActiveNav} showNotice={showNotice} />
+          ) : activeNav === "Thiết lập Team" || activeNav === "Team của tôi" ? (
+            <TeamSettingsScreen
+              teams={teamsState}
+              setTeams={setTeamsState}
+              selectedTeam={selectedTeam}
+              setSelectedTeam={setSelectedTeam}
+              selectedApp={selectedApp}
+              setSelectedApp={setSelectedApp}
+              members={membersState}
+              setMembers={setMembersState}
+              onNavigate={setActiveNav}
+              showNotice={showNotice}
+            />
+          ) : activeNav === "Mời thành viên mới" || activeNav === "Thêm thành viên" ? (
+            <InviteMemberScreen
+              selectedTeam={selectedTeam}
+              onInviteMember={(newMember) => {
+                setMembersState(prev => [...prev, newMember]);
+                setActiveNav("Thiết lập Team");
+                showNotice(`✓ Đã gửi lời mời tham gia team tới ${newMember.email}`);
+              }}
+              onCancel={() => setActiveNav("Thiết lập Team")}
+              showNotice={showNotice}
+            />
+          ) : activeNav === "Tạo một team mới" ? (
+            <CreateTeamScreen
+              onCreateTeam={(name) => {
+                const newId = `team_${Date.now()}`;
+                const newTeam: TeamData = {
+                  id: newId,
+                  name: name,
+                  short: name.split(" ").map(w => w[0]).join("").substring(0, 2).toUpperCase() || "T1",
+                  role: "Owner",
+                  apps: [
+                    {
+                      id: `app_${Math.random().toString(36).substring(2, 9)}`,
+                      name: `${name} App`,
+                      short: name.substring(0, 2).toUpperCase() || "AP",
+                      color: "#4f46e5",
+                      environment: "Production",
+                    }
+                  ]
+                };
+                setTeamsState(prev => [...prev, newTeam]);
+                setSelectedTeam(newTeam);
+                setSelectedApp(newTeam.apps[0]);
+                setActiveNav("Thiết lập Team");
+                showNotice(`✓ Đã tạo team "${name}" thành công!`);
+              }}
+              onCancel={() => setActiveNav("Thiết lập Team")}
+              showNotice={showNotice}
+            />
+          ) : activeNav === "Tạo ứng dụng mới" ? (
+            <CreateAppScreen
+              currentTeam={selectedTeam}
+              onCreateApp={(appInfo) => {
+                const newApp: AppData = {
+                  id: `app_${Math.random().toString(36).substring(2, 10).toUpperCase()}`,
+                  name: appInfo.name,
+                  short: appInfo.name.split(" ").map(w => w[0]).join("").substring(0, 2).toUpperCase() || "AP",
+                  color: "#6956d9",
+                  environment: "Production",
+                };
+                setTeamsState(prev => prev.map(t => {
+                  if (t.id === selectedTeam.id) {
+                    return { ...t, apps: [...t.apps, newApp] };
+                  }
+                  return t;
+                }));
+                setSelectedApp(newApp);
+                setActiveNav("Keys");
+                showNotice(`✓ Đã tạo ứng dụng "${appInfo.name}" thành công!`);
+              }}
+              onCancel={() => setActiveNav("Thiết lập Team")}
+              showNotice={showNotice}
+            />
+          ) : activeNav === "Cài đặt App" ? (
+            <AppSettingsScreen selectedApp={selectedApp} setSelectedApp={setSelectedApp} showNotice={showNotice} />
+          ) : activeNav === "Grant debugger" ? (
+            <GrantDebuggerScreen showNotice={showNotice} />
+          ) : activeNav === "Keys" || activeNav === "API keys" ? (
+            <ApiKeysScreen showNotice={showNotice} />
+          ) : activeNav === "RedirectURI/IP" || activeNav === "RedirectURI" || activeNav === "RedirectURL/IP" || activeNav === "API" || activeNav === "Direct URL" ? (
+            <ApiSettingsScreen showNotice={showNotice} />
+          ) : activeNav === "Webhooks" ? (
+            <WebhooksScreen showNotice={showNotice} />
           ) : activeNav === "Logs" ? (
             <LogsScreen logRecordsData={logRecordsState} showNotice={showNotice} />
-          ) : isDeveloperPage ? (
-            <DeveloperSettings page={activeNav as "API keys" | "Direct URL" | "Webhooks"} showNotice={showNotice} />
           ) : (
             <DataScreen data={screenData[activeNav]} showNotice={showNotice} />
           )}
         </main>
       </div>
       {mobileMenu && <button className="backdrop" onClick={() => setMobileMenu(false)} />}
-      
+
       {/* Quick Search / Command Palette Modal */}
       {searchModalOpen && (
         <div className="search-modal-backdrop" onClick={() => setSearchModalOpen(false)}>
@@ -1212,24 +1599,25 @@ export default function Home() {
                 { title: "API Keys", desc: "Quản lý Secret Keys & Client Credentials", nav: "API keys" },
                 { title: "Webhooks", desc: "Cấu hình Webhook & retry log", nav: "Webhooks" },
                 { title: "Logs hệ thống", desc: "Xem chi tiết Request/Response payload", nav: "Logs" },
+                { title: "Checklist Golive", desc: "Production checklist & Nộp hồ sơ duyệt Golive", nav: "Checklist Golive" },
               ]
-              .filter(item => item.title.toLowerCase().includes(searchModalQuery.toLowerCase()) || item.desc.toLowerCase().includes(searchModalQuery.toLowerCase()))
-              .map(item => (
-                <button
-                  key={item.title}
-                  className="search-modal-item"
-                  onClick={() => {
-                    setActiveNav(item.nav);
-                    setSearchModalOpen(false);
-                  }}
-                >
-                  <div>
-                    <strong>{item.title}</strong>
-                    <small>{item.desc}</small>
-                  </div>
-                  <span style={{ fontSize: 13, color: "var(--purple)", fontWeight: 600 }}>Di chuyển →</span>
-                </button>
-              ))}
+                .filter(item => item.title.toLowerCase().includes(searchModalQuery.toLowerCase()) || item.desc.toLowerCase().includes(searchModalQuery.toLowerCase()))
+                .map(item => (
+                  <button
+                    key={item.title}
+                    className="search-modal-item"
+                    onClick={() => {
+                      setActiveNav(item.nav);
+                      setSearchModalOpen(false);
+                    }}
+                  >
+                    <div>
+                      <strong>{item.title}</strong>
+                      <small>{item.desc}</small>
+                    </div>
+                    <span style={{ fontSize: 13, color: "var(--purple)", fontWeight: 600 }}>Di chuyển</span>
+                  </button>
+                ))}
             </div>
           </div>
         </div>
@@ -1238,83 +1626,98 @@ export default function Home() {
   );
 }
 
-function UsageTotal({ onSelectTab, showNotice }: { onSelectTab?: (tab: AnalyticsTab) => void; showNotice: (message: string) => void }) {
+function UsageTotal({
+  onSelectTab,
+  showNotice,
+  billingView = "current",
+  onNavigateHistory,
+  onNavigateCurrent,
+}: {
+  onSelectTab?: (tab: AnalyticsTab) => void;
+  showNotice: (message: string) => void;
+  billingView?: "current" | "history";
+  onNavigateHistory?: () => void;
+  onNavigateCurrent?: () => void;
+}) {
   const [paymentState, setPaymentState] = useState<"unpaid" | "scanning" | "paid">("unpaid");
   const [wantEinvoice, setWantEinvoice] = useState(true);
   const [showInvoiceModal, setShowInvoiceModal] = useState(false);
-  const [showHistoryModal, setShowHistoryModal] = useState(false);
 
   const historyCycles = [
     {
       cycle: "Tháng 06/2026",
-      total: "₫330,420,000",
-      subtotal: "₫300,381,818",
-      vat: "₫30,038,182",
+      period: "01/06/2026 – 30/06/2026",
+      invoiceCode: "CAS-2026-06-001",
+      total: "₫252,797,600",
+      subtotal: "₫229,816,000",
+      vat: "₫22,981,600",
       status: "Đã thanh toán",
       date: "02/07/2026",
+      time: "10:24",
       invoice: true,
       items: [
-        { name: "Grant Connection", quantity: "2.500", unit: "connections", price: "Miễn phí", cost: "₫0" },
-        { name: "Transaction", quantity: "380.000", unit: "calls", price: "30.000đ/1.000 API calls", cost: "₫16.900.000" },
-        { name: "QR Pay", quantity: "120.000", unit: "GD thành công", price: "50đ + 0.3% / GD", cost: "₫13.000.000" },
-        { name: "Virtual Account", quantity: "1.400", unit: "VA hoạt động", price: "1.000đ / VA", cost: "₫1.400.000" },
-        { name: "Balance Hook", quantity: "250.000", unit: "thông báo", price: "300đ / thông báo", cost: "₫75.000.000" },
-        { name: "Transfer", quantity: "95.000", unit: "GD thành công", price: "2.000đ / GD", cost: "₫190,000,000" },
-        { name: "Deeplink", quantity: "40.818", unit: "lượt", price: "100đ / lượt", cost: "₫4,081,818" },
+        { name: "Transaction scope", quantity: "58", unit: "lần", price: "100.000đ", cost: "₫5.800.000" },
+        { name: "Transaction Request", quantity: "398.200", unit: "lần", price: "30đ", cost: "₫11.946.000" },
+        { name: "QR Pay Transaction", quantity: "124.500", unit: "lần", price: "50đ + 0.3%", cost: "₫13.450.000" },
+        { name: "Virtual Account Active", quantity: "1.420", unit: "tài khoản", price: "1.000đ", cost: "₫1.420.000" },
+        { name: "Transfer Transaction", quantity: "98.600", unit: "lần", price: "2.000đ", cost: "₫197.200.000" },
       ]
     },
     {
       cycle: "Tháng 05/2026",
-      total: "₫315,100,000",
-      subtotal: "₫286,454,545",
-      vat: "₫28,645,455",
+      period: "01/05/2026 – 31/05/2026",
+      invoiceCode: "CAS-2026-05-001",
+      total: "₫233,521,200",
+      subtotal: "₫212,292,000",
+      vat: "₫21,229,200",
       status: "Đã thanh toán",
       date: "04/06/2026",
+      time: "15:40",
       invoice: true,
       items: [
-        { name: "Grant Connection", quantity: "2.100", unit: "connections", price: "Miễn phí", cost: "₫0" },
-        { name: "Transaction", quantity: "350.000", unit: "calls", price: "30.000đ/1.000 API calls", cost: "₫15.500.000" },
-        { name: "QR Pay", quantity: "110.000", unit: "GD thành công", price: "50đ + 0.3% / GD", cost: "₫11.500.000" },
-        { name: "Virtual Account", quantity: "1.300", unit: "VA hoạt động", price: "1.000đ / VA", cost: "₫1.300.000" },
-        { name: "Balance Hook", quantity: "240.000", unit: "thông báo", price: "300đ / thông báo", cost: "₫72.000.000" },
-        { name: "Transfer", quantity: "91.000", unit: "GD thành công", price: "2.000đ / GD", cost: "₫182,000,000" },
-        { name: "Deeplink", quantity: "41.545", unit: "lượt", price: "100đ / lượt", cost: "₫4,154,545" },
+        { name: "Transaction scope", quantity: "52", unit: "lần", price: "100.000đ", cost: "₫5.200.000" },
+        { name: "Transaction Request", quantity: "362.400", unit: "lần", price: "30đ", cost: "₫10.872.000" },
+        { name: "QR Pay Transaction", quantity: "115.800", unit: "lần", price: "50đ + 0.3%", cost: "₫12.510.000" },
+        { name: "Virtual Account Active", quantity: "1.310", unit: "tài khoản", price: "1.000đ", cost: "₫1.310.000" },
+        { name: "Transfer Transaction", quantity: "91.200", unit: "lần", price: "2.000đ", cost: "₫182.400.000" },
       ]
     },
     {
       cycle: "Tháng 04/2026",
-      total: "₫290,000,000",
-      subtotal: "₫263,636,364",
-      vat: "₫26,363,636",
+      period: "01/04/2026 – 30/04/2026",
+      invoiceCode: "CAS-2026-04-001",
+      total: "₫215,358,000",
+      subtotal: "₫195,780,000",
+      vat: "₫19,578,000",
       status: "Đã thanh toán",
       date: "05/05/2026",
+      time: "09:15",
       invoice: false,
       items: [
-        { name: "Grant Connection", quantity: "1.900", unit: "connections", price: "Miễn phí", cost: "₫0" },
-        { name: "Transaction", quantity: "310.000", unit: "calls", price: "30.000đ/1.000 API calls", cost: "₫13.800.000" },
-        { name: "QR Pay", quantity: "95.000", unit: "GD thành công", price: "50đ + 0.3% / GD", cost: "₫9.900.000" },
-        { name: "Virtual Account", quantity: "1.100", unit: "VA hoạt động", price: "1.000đ / VA", cost: "₫1.100.000" },
-        { name: "Balance Hook", quantity: "220.000", unit: "thông báo", price: "300đ / thông báo", cost: "₫66.000.000" },
-        { name: "Transfer", quantity: "85.000", unit: "GD thành công", price: "2.000đ / GD", cost: "₫170,000,000" },
-        { name: "Deeplink", quantity: "28.363", unit: "lượt", price: "100đ / lượt", cost: "₫2,836,364" },
+        { name: "Transaction scope", quantity: "48", unit: "lần", price: "100.000đ", cost: "₫4.800.000" },
+        { name: "Transaction Request", quantity: "324.000", unit: "lần", price: "30đ", cost: "₫9.720.000" },
+        { name: "QR Pay Transaction", quantity: "102.300", unit: "lần", price: "50đ + 0.3%", cost: "₫11.080.000" },
+        { name: "Virtual Account Active", quantity: "1.180", unit: "tài khoản", price: "1.000đ", cost: "₫1.180.000" },
+        { name: "Transfer Transaction", quantity: "84.500", unit: "lần", price: "2.000đ", cost: "₫169.000.000" },
       ]
     },
     {
       cycle: "Tháng 03/2026",
-      total: "₫275,500,000",
-      subtotal: "₫250,454,545",
-      vat: "₫25,045,455",
+      period: "01/03/2026 – 31/03/2026",
+      invoiceCode: "CAS-2026-03-001",
+      total: "₫198,632,500",
+      subtotal: "₫180,575,000",
+      vat: "₫18,057,500",
       status: "Đã thanh toán",
       date: "02/04/2026",
+      time: "14:20",
       invoice: true,
       items: [
-        { name: "Grant Connection", quantity: "1.800", unit: "connections", price: "Miễn phí", cost: "₫0" },
-        { name: "Transaction", quantity: "280.000", unit: "calls", price: "30.000đ/1.000 API calls", cost: "₫12.400.000" },
-        { name: "QR Pay", quantity: "90.000", unit: "GD thành công", price: "50đ + 0.3% / GD", cost: "₫9.200.000" },
-        { name: "Virtual Account", quantity: "1.000", unit: "VA hoạt động", price: "1.000đ / VA", cost: "₫1.000.000" },
-        { name: "Balance Hook", quantity: "210.000", unit: "thông báo", price: "300đ / thông báo", cost: "₫63.000.000" },
-        { name: "Transfer", quantity: "81.000", unit: "GD thành công", price: "2.000đ / GD", cost: "₫162,000,000" },
-        { name: "Deeplink", quantity: "28.545", unit: "lượt", price: "100đ / lượt", cost: "₫2,854,545" },
+        { name: "Transaction scope", quantity: "42", unit: "lần", price: "100.000đ", cost: "₫4.200.000" },
+        { name: "Transaction Request", quantity: "291.500", unit: "lần", price: "30đ", cost: "₫8.745.000" },
+        { name: "QR Pay Transaction", quantity: "94.200", unit: "lần", price: "50đ + 0.3%", cost: "₫10.180.000" },
+        { name: "Virtual Account Active", quantity: "1.050", unit: "tài khoản", price: "1.000đ", cost: "₫1.050.000" },
+        { name: "Transfer Transaction", quantity: "78.200", unit: "lần", price: "2.000đ", cost: "₫156.400.000" },
       ]
     },
   ];
@@ -1328,336 +1731,403 @@ function UsageTotal({ onSelectTab, showNotice }: { onSelectTab?: (tab: Analytics
   const [einvoiceNote, setEinvoiceNote] = useState("Xuất HĐĐT kỳ 07/2026 cho HĐ CAS-2026-07");
 
   const billingItems = [
-    { tab: "Connection" as const, name: "Grant scope (Connection)", quantity: "2.847", unit: "lần", price: "0đ", cost: "₫0" },
     { tab: "Transaction" as const, name: "Transaction scope", quantity: "62", unit: "lần", price: "100.000đ", cost: "₫6.200.000" },
     { tab: "Transaction" as const, name: "Transaction Request", quantity: "426.800", unit: "lần", price: "30đ", cost: "₫12.804.000" },
     { tab: "QRPay" as const, name: "QR Pay Transaction", quantity: "132.400", unit: "lần", price: "50đ + 0.3%", cost: "₫14.280.000" },
     { tab: "VirtualAccount" as const, name: "Virtual Account Active", quantity: "1.520", unit: "tài khoản", price: "1.000đ", cost: "₫1.520.000" },
-    { tab: "BalanceHook" as const, name: "Balance Hook notification", quantity: "280.900", unit: "lần", price: "300đ", cost: "₫84.270.000" },
     { tab: "Transfer" as const, name: "Transfer Transaction", quantity: "107.800", unit: "lần", price: "2.000đ", cost: "₫215.600.000" },
-    { tab: "Deeplink" as const, name: "Deeplink request", quantity: "115.400", unit: "lần", price: "100đ", cost: "₫11.540.000" },
   ];
 
-  return <div className="usage-total" style={{ padding: "8px 0" }}>
-    <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) 340px", gap: "20px", alignItems: "start", width: "100%" }}>
-      {/* Left Panel: Invoice Breakdown Table */}
-      <div className="panel" style={{ padding: "28px 32px", background: "white", borderRadius: "12px", border: "1px solid var(--border-color)", boxShadow: "0 2px 12px rgba(0,0,0,0.03)" }}>
-        {/* Heading */}
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "20px", paddingBottom: "16px", borderBottom: "1px solid var(--border-color)" }}>
-          <div>
-            <h2 style={{ margin: 0, fontSize: "20px", fontWeight: 700, color: "var(--text-color)" }}>Chi phí theo dịch vụ</h2>
-            <div style={{ fontSize: "14px", color: "var(--muted)", marginTop: "4px" }}>
-              Kỳ sử dụng: <strong style={{ color: "var(--text-color)" }}>Tháng 07/2026</strong> (01/07/2026 – 31/07/2026) · Gói Vendor
+  if (billingView === "history") {
+    if (!selectedHistoryCycle) {
+      return (
+        <div style={{ maxWidth: 1080, padding: "8px 0 40px" }}>
+          <section style={{ background: "white", border: "1px solid var(--border-color)", borderRadius: 10, overflow: "hidden" }}>
+            <div style={{ padding: "20px 24px", borderBottom: "1px solid var(--border-color)" }}>
+              <h2 style={{ fontSize: 18, fontWeight: 700, margin: "0 0 4px 0", color: "#0f172a" }}>Lịch sử thanh toán</h2>
+              <p style={{ fontSize: 13, color: "#64748b", margin: 0 }}>
+                Chọn một kỳ thanh toán bên dưới để xem bảng kê chi tiết dịch vụ và tải hóa đơn.
+              </p>
             </div>
-          </div>
-          <div style={{ textAlign: "right" }}>
-            <div style={{ fontSize: "14px", color: "var(--muted)" }}>Mã hóa đơn: <strong style={{ color: "var(--text-color)" }}>CAS-2026-07-001</strong></div>
-          </div>
-        </div>
-
-        {/* Table */}
-        <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left" }} className="billing-breakdown">
-          <thead>
-            <tr style={{ background: "var(--bg-card)", borderBottom: "1px solid var(--border-color)" }}>
-              <th style={{ padding: "12px 14px", fontWeight: 600, fontSize: "13px", color: "var(--muted)", textTransform: "uppercase", textAlign: "left" }}>Tên dịch vụ</th>
-              <th style={{ padding: "12px 14px", fontWeight: 600, fontSize: "13px", color: "var(--muted)", textTransform: "uppercase", textAlign: "right" }}>Số lượng</th>
-              <th style={{ padding: "12px 14px", fontWeight: 600, fontSize: "13px", color: "var(--muted)", textTransform: "uppercase", textAlign: "right" }}>Đơn vị tính</th>
-              <th style={{ padding: "12px 14px", fontWeight: 600, fontSize: "13px", color: "var(--muted)", textTransform: "uppercase", textAlign: "right" }}>Đơn giá</th>
-              <th style={{ padding: "12px 14px", fontWeight: 600, fontSize: "13px", color: "var(--muted)", textTransform: "uppercase", textAlign: "right" }}>Tổng tiền</th>
-            </tr>
-          </thead>
-          <tbody>
-            {billingItems.map((item, idx) => (
-              <tr key={idx} style={{ borderBottom: "1px solid var(--border-color)" }}>
-                <td style={{ padding: "12px 14px", textAlign: "left" }}>
-                  <strong style={{ color: "var(--text-color)" }}>{item.name}</strong>
-                </td>
-                <td style={{ padding: "12px 14px", textAlign: "right" }}>{item.quantity}</td>
-                <td style={{ padding: "12px 14px", textAlign: "right", color: "var(--muted)" }}>{item.unit}</td>
-                <td style={{ padding: "12px 14px", textAlign: "right", color: "var(--muted)" }}>{item.price}</td>
-                <td style={{ padding: "12px 14px", textAlign: "right" }}><strong>{item.cost}</strong></td>
-              </tr>
-            ))}
-            
-            {/* Totals inside table */}
-            <tr style={{ borderTop: "2px solid var(--border-color)", background: "rgba(0,0,0,0.01)" }}>
-              <td colSpan={3} style={{ padding: "12px 14px" }}></td>
-              <td style={{ padding: "12px 14px", textAlign: "right", color: "var(--muted)", fontWeight: 500, fontSize: "14px" }}>Tạm tính:</td>
-              <td style={{ padding: "12px 14px", textAlign: "right", fontWeight: 600, fontSize: "15px" }}>₫346,214,000</td>
-            </tr>
-            <tr style={{ background: "rgba(0,0,0,0.01)" }}>
-              <td colSpan={3} style={{ padding: "12px 14px" }}></td>
-              <td style={{ padding: "12px 14px", textAlign: "right", color: "var(--muted)", fontWeight: 500, fontSize: "14px" }}>Thuế VAT (10%):</td>
-              <td style={{ padding: "12px 14px", textAlign: "right", fontWeight: 600, fontSize: "15px" }}>₫34,621,400</td>
-            </tr>
-            <tr style={{ background: "rgba(0,0,0,0.03)", borderTop: "1px solid var(--border-color)" }}>
-              <td colSpan={3} style={{ padding: "12px 14px" }}></td>
-              <td style={{ padding: "12px 14px", textAlign: "right", fontWeight: 700, fontSize: "15px" }}>Tổng cộng:</td>
-              <td style={{ padding: "12px 14px", textAlign: "right", fontWeight: 700, color: "var(--purple)", fontSize: "18px" }}>₫380,835,400</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-
-      {/* Right Sticky Summary Card */}
-      <div className="panel invoice-summary" style={{ padding: "24px", background: "white", borderRadius: "12px", border: "1px solid var(--border-color)", boxShadow: "0 2px 12px rgba(0,0,0,0.03)", position: "sticky", top: "16px" }}>
-        <div className="invoice-status-line" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
-          <span className="invoice-label" style={{ fontSize: "13px", fontWeight: 600, color: "var(--muted)", textTransform: "uppercase" }}>KỲ THANH TOÁN</span>
-          <span className={`invoice-payment-status ${paymentState}`} style={{ display: "inline-flex", alignItems: "center", gap: "4px", fontSize: "13px", fontWeight: 600, color: paymentState === "paid" ? "#10b981" : "#d97706", background: paymentState === "paid" ? "rgba(16,185,129,0.1)" : "rgba(217,119,6,0.1)", padding: "3px 10px", borderRadius: "12px" }}>
-            <i style={{ width: "6px", height: "6px", borderRadius: "50%", background: "currentColor" }} />
-            {paymentState === "paid" ? "Đã thanh toán" : "Chưa thanh toán"}
-          </span>
-        </div>
-        <h2 style={{ fontSize: "22px", fontWeight: 700, margin: "4px 0 16px" }}>Tháng 07/2026</h2>
-        
-        <dl style={{ margin: "0 0 20px" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: "1px solid var(--border-color)", fontSize: "15px" }}>
-            <dt style={{ color: "var(--muted)" }}>Tạm tính</dt>
-            <dd style={{ margin: 0, fontWeight: 600 }}>₫346,214,000</dd>
-          </div>
-          <div style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: "1px solid var(--border-color)", fontSize: "15px" }}>
-            <dt style={{ color: "var(--muted)" }}>Thuế VAT (10%)</dt>
-            <dd style={{ margin: 0, fontWeight: 600 }}>₫34,621,400</dd>
-          </div>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 0 0", fontSize: "16px" }}>
-            <dt style={{ fontWeight: 700 }}>Tổng thanh toán</dt>
-            <dd style={{ margin: 0, fontSize: "22px", fontWeight: 700, color: "var(--purple)" }}>₫380,835,400</dd>
-          </div>
-        </dl>
-
-        {/* VAT Toggle Checkbox */}
-        <div style={{ background: "var(--bg-card)", padding: "12px 14px", borderRadius: "8px", border: "1px solid var(--border-color)", marginBottom: "18px" }}>
-          <label style={{ display: "flex", alignItems: "center", gap: "8px", cursor: "pointer", fontWeight: 500, margin: 0, fontSize: "14px" }}>
-            <input type="checkbox" checked={wantEinvoice} onChange={e => {
-              const checked = e.target.checked;
-              setWantEinvoice(checked);
-              if (checked) setShowInvoiceModal(true);
-            }} style={{ width: "15px", height: "15px" }} />
-            <span>Xuất hóa đơn VAT điện tử (e-Invoice)</span>
-          </label>
-          {wantEinvoice && (
-            <div style={{ marginTop: "8px", paddingTop: "8px", borderTop: "1px dashed var(--border-color)", display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "13px" }}>
-              <div style={{ color: "var(--muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "210px" }}>
-                <strong>{einvoiceCompany}</strong>
-              </div>
-              <button type="button" style={{ border: "none", background: "none", color: "var(--purple)", cursor: "pointer", fontSize: "13px", fontWeight: 600, padding: 0 }} onClick={() => setShowInvoiceModal(true)}>
-                Sửa ✎
-              </button>
+            <div style={{ overflowX: "auto" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left", fontSize: 13.5 }}>
+                <thead>
+                  <tr style={{ background: "#f8fafc", borderBottom: "1px solid var(--border-color)" }}>
+                    <th style={{ padding: "14px 20px", fontWeight: 600, color: "#64748b", fontSize: 12 }}>KỲ THANH TOÁN</th>
+                    <th style={{ padding: "14px 20px", fontWeight: 600, color: "#64748b", fontSize: 12 }}>TỔNG TIỀN</th>
+                    <th style={{ padding: "14px 20px", fontWeight: 600, color: "#64748b", fontSize: 12 }}>TRẠNG THÁI</th>
+                    <th style={{ padding: "14px 20px", fontWeight: 600, color: "#64748b", fontSize: 12 }}>HÓA ĐƠN VAT</th>
+                    <th style={{ padding: "14px 20px", fontWeight: 600, color: "#64748b", fontSize: 12, textAlign: "right" }}>THAO TÁC</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {historyCycles.map(cycle => (
+                    <tr
+                      key={cycle.cycle}
+                      style={{ borderBottom: "1px solid #f1f5f9", cursor: "pointer", transition: "background 0.15s" }}
+                      onClick={() => setSelectedHistoryCycle(cycle)}
+                      onMouseEnter={e => (e.currentTarget.style.background = "#f8fafc")}
+                      onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
+                    >
+                      <td style={{ padding: "16px 20px" }}>
+                        <strong style={{ color: "#0f172a", display: "block" }}>{cycle.cycle}</strong>
+                        <span style={{ fontSize: 12, color: "#64748b" }}>Mã HD: {cycle.invoiceCode}</span>
+                      </td>
+                      <td style={{ padding: "16px 20px", fontWeight: 600, color: "#0f172a" }}>{cycle.total}</td>
+                      <td style={{ padding: "16px 20px" }}>
+                        <span style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 12, fontWeight: 600, color: "#16a34a", background: "#dcfce7", padding: "2px 8px", borderRadius: 12 }}>
+                          ● {cycle.status}
+                        </span>
+                        <div style={{ fontSize: 12, color: "#64748b", marginTop: 3 }}>vào {cycle.date}</div>
+                      </td>
+                      <td style={{ padding: "16px 20px" }}>
+                        {cycle.invoice ? (
+                          <span style={{ color: "#16a34a", fontWeight: 600, fontSize: 13 }}>✓ Đã xuất HĐĐT</span>
+                        ) : (
+                          <span style={{ color: "#94a3b8", fontSize: 13 }}>Không yêu cầu</span>
+                        )}
+                      </td>
+                      <td style={{ padding: "16px 20px", textAlign: "right" }}>
+                        <button
+                          onClick={e => {
+                            e.stopPropagation();
+                            setSelectedHistoryCycle(cycle);
+                          }}
+                          style={{
+                            background: "white",
+                            border: "1px solid #cbd5e1",
+                            borderRadius: 6,
+                            padding: "6px 14px",
+                            fontSize: 13,
+                            fontWeight: 600,
+                            color: "#0f172a",
+                            cursor: "pointer",
+                          }}
+                        >
+                          Xem chi tiết
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
-          )}
+          </section>
         </div>
+      );
+    }
 
-        {/* Actions */}
-        <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-          {paymentState === "paid" ? (
-            <button className="primary-button" onClick={() => showNotice(wantEinvoice ? `Đã tải hoá đơn điện tử gửi tới ${einvoiceEmail}` : "Đã tải chứng từ thanh toán")} style={{ width: "100%", height: "40px", padding: 0 }}>
-              {wantEinvoice ? "⇩ Tải hóa đơn VAT (.pdf)" : "⇩ Tải chứng từ thanh toán"}
-            </button>
-          ) : (
-            <button className="primary-button payment-button" onClick={() => setPaymentState("scanning")} style={{ width: "100%", height: "42px", padding: 0, background: "var(--purple)", fontWeight: 600, fontSize: "16px" }}>
-              Thanh toán
-            </button>
-          )}
-          <button className="invoice-secondary" onClick={() => setShowHistoryModal(true)} style={{ width: "100%", height: "38px", cursor: "pointer", fontSize: "14px", margin: 0 }}>
-            Xem lịch sử thanh toán
-          </button>
-        </div>
-      </div>
-    </div>
-    {paymentState === "scanning" && <div className="payment-screen" role="dialog" aria-modal="true" aria-labelledby="payment-title">
-      <div className="payment-modal">
-        <div className="payment-heading"><div><span>THANH TOÁN HOÁ ĐƠN</span><h2 id="payment-title">Quét mã QR để thanh toán</h2></div><button aria-label="Đóng" onClick={() => setPaymentState("unpaid")}>×</button></div>
-        <div className="payment-content">
-          <div className="payment-qr"><div className="qr-noise"><i /><i /><i /></div><small>VIETQR</small></div>
-          <div className="payment-info">
-            <span>SỐ TIỀN THANH TOÁN</span><strong>₫380,835,400</strong>
-            <dl><div><dt>Ngân hàng</dt><dd>MB Bank</dd></div><div><dt>Người nhận</dt><dd>CAS VIETNAM JSC</dd></div><div><dt>Nội dung</dt><dd>CAS APP8F2 JUL2026</dd></div><div><dt>Hết hạn</dt><dd>14:59</dd></div></dl>
-            {wantEinvoice && <div className="payment-einvoice-strip">
+    // Detail view using the exact same screen layout as the main billing page
+    return (
+      <div className="usage-total" style={{ padding: "8px 0" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) 340px", gap: "20px", alignItems: "start", width: "100%" }}>
+          {/* Left Panel: Invoice Breakdown Table */}
+          <div className="panel" style={{ padding: "28px 32px", background: "white", borderRadius: "12px", border: "1px solid var(--border-color)", boxShadow: "0 2px 12px rgba(0,0,0,0.03)" }}>
+            {/* Heading */}
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "20px", paddingBottom: "16px", borderBottom: "1px solid var(--border-color)" }}>
               <div>
-                <span>📝 HÓA ĐƠN ĐIỆN TỬ:</span>
-                <strong>{einvoiceCompany}</strong> (MST: {einvoiceTaxId}) · <em>{einvoiceEmail}</em>
+                <h2 style={{ margin: 0, fontSize: "20px", fontWeight: 700, color: "var(--text-color)" }}>App VietFin Digital</h2>
+                <div style={{ fontSize: "14px", color: "var(--muted)", marginTop: "4px" }}>
+                  Kỳ sử dụng: <strong style={{ color: "var(--text-color)" }}>{selectedHistoryCycle.cycle}</strong> ({selectedHistoryCycle.period})
+                </div>
               </div>
-              <button type="button" onClick={() => setShowInvoiceModal(true)}>Sửa</button>
-            </div>}
-            <p style={{ marginTop: "12px" }}>Mở ứng dụng ngân hàng, quét mã và giữ nguyên nội dung chuyển khoản.</p>
-            <button className="primary-button" onClick={() => { setPaymentState("paid"); showNotice(wantEinvoice ? `Thanh toán thành công! Hóa đơn đã gửi tới ${einvoiceEmail}` : "Thanh toán thành công!"); }}>Mô phỏng thanh toán thành công</button>
-            <button onClick={() => setPaymentState("unpaid")}>Huỷ thanh toán</button>
-          </div>
-        </div>
-      </div>
-    </div>}
-
-    {showInvoiceModal && <div className="payment-screen" role="dialog" aria-modal="true" aria-labelledby="invoice-modal-title">
-      <div className="invoice-modal-dialog">
-        <div className="payment-heading">
-          <div><span>THÔNG TIN THUẾ & HÓA ĐƠN</span><h2 id="invoice-modal-title">Cấu hình hóa đơn điện tử VAT</h2></div>
-          <button aria-label="Đóng" onClick={() => setShowInvoiceModal(false)}>×</button>
-        </div>
-        <div className="invoice-modal-body">
-          <div className="einvoice-field">
-            <label>Tên đơn vị mua hàng / Công ty <b className="req">*</b></label>
-            <input type="text" value={einvoiceCompany} onChange={e => setEinvoiceCompany(e.target.value)} placeholder="VD: Công ty CP VietFin Digital" />
-          </div>
-          <div className="einvoice-field-row">
-            <div className="einvoice-field">
-              <label>Mã số thuế (MST) <b className="req">*</b></label>
-              <input type="text" value={einvoiceTaxId} onChange={e => setEinvoiceTaxId(e.target.value)} placeholder="VD: 0317849201" />
+              <div style={{ textAlign: "right" }}>
+                <div style={{ fontSize: "14px", color: "var(--muted)" }}>Mã hóa đơn: <strong style={{ color: "var(--text-color)" }}>{selectedHistoryCycle.invoiceCode}</strong></div>
+              </div>
             </div>
-            <div className="einvoice-field">
-              <label>Email nhận HĐĐT <b className="req">*</b></label>
-              <input type="email" value={einvoiceEmail} onChange={e => setEinvoiceEmail(e.target.value)} placeholder="VD: ketoan@vietfin.vn" />
-            </div>
-          </div>
-          <div className="einvoice-field">
-            <label>Địa chỉ công ty (theo đăng ký kinh doanh)</label>
-            <input type="text" value={einvoiceAddress} onChange={e => setEinvoiceAddress(e.target.value)} placeholder="Nhập địa chỉ nhận hóa đơn" />
-          </div>
-          <div className="einvoice-field">
-            <label>Ghi chú trên hóa đơn (tùy chọn)</label>
-            <input type="text" value={einvoiceNote} onChange={e => setEinvoiceNote(e.target.value)} placeholder="VD: Mã hợp đồng, bộ phận nhận..." />
-          </div>
-          <div className="invoice-modal-actions">
-            <button type="button" className="invoice-cancel-btn" onClick={() => setShowInvoiceModal(false)}>Hủy</button>
-            <button type="button" className="primary-button" onClick={() => { setShowInvoiceModal(false); showNotice("Đã lưu thông tin xuất hóa đơn VAT"); }}>Lưu thông tin hóa đơn</button>
-          </div>
-        </div>
-      </div>
-    </div>}
 
-    {showHistoryModal && <div className="payment-screen" role="dialog" aria-modal="true" aria-labelledby="history-modal-title">
-      <div className="invoice-modal-dialog" style={{ width: "min(780px, 94vw)", maxHeight: "90vh", display: "flex", flexDirection: "column" }}>
-        <div className="payment-heading">
-          <div>
-            <span>BILLING & INVOICE</span>
-            <h2 id="history-modal-title">Lịch sử thanh toán</h2>
-            <p style={{ margin: "4px 0 0", fontSize: 14, color: "var(--muted)" }}>Chọn một kỳ thanh toán bên dưới để xem bảng kê chi tiết dịch vụ và tải hóa đơn.</p>
-          </div>
-          <button aria-label="Đóng" onClick={() => { setShowHistoryModal(false); setSelectedHistoryCycle(null); }}>×</button>
-        </div>
-        <div className="invoice-modal-body" style={{ padding: 0, display: "block", overflowY: "auto", flex: 1 }}>
-          {!selectedHistoryCycle ? (
-            <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left" }}>
-              <thead style={{ background: "var(--bg-card)", borderBottom: "1px solid var(--border-color)", position: "sticky", top: 0, zIndex: 1 }}>
-                <tr>
-                  <th style={{ padding: "16px 24px", fontWeight: 600, fontSize: 14, color: "var(--muted)" }}>Kỳ thanh toán</th>
-                  <th style={{ padding: "16px 24px", fontWeight: 600, fontSize: 14, color: "var(--muted)" }}>Tổng tiền</th>
-                  <th style={{ padding: "16px 24px", fontWeight: 600, fontSize: 14, color: "var(--muted)" }}>Trạng thái</th>
-                  <th style={{ padding: "16px 24px", fontWeight: 600, fontSize: 14, color: "var(--muted)" }}>Hóa đơn VAT</th>
-                  <th style={{ padding: "16px 24px", fontWeight: 600, fontSize: 14, color: "var(--muted)", textAlign: "right" }}>Thao tác</th>
+            {/* Table */}
+            <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left" }} className="billing-breakdown">
+              <thead>
+                <tr style={{ background: "var(--bg-card)", borderBottom: "1px solid var(--border-color)" }}>
+                  <th style={{ padding: "12px 14px", fontWeight: 600, fontSize: "13px", color: "var(--muted)", textTransform: "uppercase", textAlign: "left" }}>Tên dịch vụ</th>
+                  <th style={{ padding: "12px 14px", fontWeight: 600, fontSize: "13px", color: "var(--muted)", textTransform: "uppercase", textAlign: "right" }}>Số lượng</th>
+                  <th style={{ padding: "12px 14px", fontWeight: 600, fontSize: "13px", color: "var(--muted)", textTransform: "uppercase", textAlign: "right" }}>Đơn vị tính</th>
+                  <th style={{ padding: "12px 14px", fontWeight: 600, fontSize: "13px", color: "var(--muted)", textTransform: "uppercase", textAlign: "right" }}>Đơn giá</th>
+                  <th style={{ padding: "12px 14px", fontWeight: 600, fontSize: "13px", color: "var(--muted)", textTransform: "uppercase", textAlign: "right" }}>Tổng tiền</th>
                 </tr>
               </thead>
               <tbody>
-                {historyCycles.map(cycle => (
-                  <tr key={cycle.cycle} style={{ borderBottom: "1px solid var(--border-color)", cursor: "pointer", transition: "background 0.2s" }} onClick={() => setSelectedHistoryCycle(cycle)} onMouseEnter={e => (e.currentTarget.style.background = "var(--bg-card)")} onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>
-                    <td style={{ padding: "16px 24px" }}>
-                      <div style={{ display: "flex", flexDirection: "column" }}>
-                        <span style={{ fontWeight: 600, color: "var(--text-color)" }}>{cycle.cycle}</span>
-                        <span style={{ fontSize: 13, color: "var(--muted)" }}>Mã HD: CAS-{cycle.cycle.replace("Tháng ", "").replace("/", "-")}</span>
-                      </div>
+                {selectedHistoryCycle.items.map((item, idx) => (
+                  <tr key={idx} style={{ borderBottom: "1px solid var(--border-color)" }}>
+                    <td style={{ padding: "12px 14px", textAlign: "left" }}>
+                      <strong style={{ color: "var(--text-color)" }}>{item.name}</strong>
                     </td>
-                    <td style={{ padding: "16px 24px", fontWeight: 600, color: "var(--text-color)" }}>{cycle.total}</td>
-                    <td style={{ padding: "16px 24px" }}>
-                      <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 500, color: "#10b981", background: "rgba(16,185,129,0.1)", padding: "4px 10px", borderRadius: 20 }}>
-                        <i style={{ width: 6, height: 6, borderRadius: "50%", background: "currentColor" }} /> {cycle.status}
-                      </span>
-                      <div style={{ fontSize: 13, color: "var(--muted)", marginTop: 4 }}>vào {cycle.date}</div>
-                    </td>
-                    <td style={{ padding: "16px 24px", color: cycle.invoice ? "var(--purple)" : "var(--muted)", fontSize: 15, fontWeight: 500 }}>
-                      {cycle.invoice ? "✓ Đã xuất HĐĐT" : "Không yêu cầu"}
-                    </td>
-                    <td style={{ padding: "16px 24px", textAlign: "right" }}>
-                      <span className="invoice-secondary" style={{ padding: "6px 12px", fontSize: 14, display: "inline-block", borderRadius: 4, fontWeight: 500 }}>Xem chi tiết →</span>
-                    </td>
+                    <td style={{ padding: "12px 14px", textAlign: "right" }}>{item.quantity}</td>
+                    <td style={{ padding: "12px 14px", textAlign: "right", color: "var(--muted)" }}>{item.unit}</td>
+                    <td style={{ padding: "12px 14px", textAlign: "right", color: "var(--muted)" }}>{item.price}</td>
+                    <td style={{ padding: "12px 14px", textAlign: "right" }}><strong>{item.cost}</strong></td>
                   </tr>
                 ))}
+
+                {/* Totals inside table */}
+                <tr style={{ borderTop: "2px solid var(--border-color)", background: "rgba(0,0,0,0.01)" }}>
+                  <td colSpan={3} style={{ padding: "12px 14px" }}></td>
+                  <td style={{ padding: "12px 14px", textAlign: "right", color: "var(--muted)", fontWeight: 500, fontSize: "14px" }}>Tạm tính:</td>
+                  <td style={{ padding: "12px 14px", textAlign: "right", fontWeight: 600, fontSize: "15px" }}>{selectedHistoryCycle.subtotal}</td>
+                </tr>
+                <tr style={{ background: "rgba(0,0,0,0.01)" }}>
+                  <td colSpan={3} style={{ padding: "12px 14px" }}></td>
+                  <td style={{ padding: "12px 14px", textAlign: "right", color: "var(--muted)", fontWeight: 500, fontSize: "14px" }}>Thuế VAT (10%):</td>
+                  <td style={{ padding: "12px 14px", textAlign: "right", fontWeight: 600, fontSize: "15px" }}>{selectedHistoryCycle.vat}</td>
+                </tr>
+                <tr style={{ background: "rgba(0,0,0,0.03)", borderTop: "1px solid var(--border-color)" }}>
+                  <td colSpan={3} style={{ padding: "12px 14px" }}></td>
+                  <td style={{ padding: "12px 14px", textAlign: "right", fontWeight: 700, fontSize: "15px" }}>Tổng cộng:</td>
+                  <td style={{ padding: "12px 14px", textAlign: "right", fontWeight: 700, color: "var(--purple)", fontSize: "18px" }}>{selectedHistoryCycle.total}</td>
+                </tr>
               </tbody>
             </table>
-          ) : (
-            <div style={{ padding: 24 }}>
-              <button style={{ background: "transparent", border: "none", color: "var(--purple)", cursor: "pointer", display: "flex", alignItems: "center", gap: 8, fontSize: 16, marginBottom: 20, padding: 0, fontWeight: 600 }} onClick={() => setSelectedHistoryCycle(null)}>
-                ← Quay lại danh sách lịch sử
-              </button>
-              
-              <div style={{ display: "flex", justifyContent: "between", alignItems: "center", marginBottom: 20 }}>
-                <h3 style={{ fontSize: 22, margin: 0 }}>Chi tiết thanh toán {selectedHistoryCycle.cycle}</h3>
-                <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 14, fontWeight: 600, color: "#10b981", background: "rgba(16,185,129,0.1)", padding: "6px 12px", borderRadius: 20 }}>
-                  <i style={{ width: 6, height: 6, borderRadius: "50%", background: "currentColor" }} /> {selectedHistoryCycle.status}
-                </span>
-              </div>
+          </div>
 
-              <dl style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "20px 40px", background: "var(--bg-card)", padding: 24, borderRadius: 12, marginBottom: 24, border: "1px solid var(--border-color)" }}>
-                <div><dt style={{ fontSize: 14, color: "var(--muted)", marginBottom: 4, textTransform: "uppercase", fontWeight: 600 }}>Tổng tiền thanh toán</dt><dd style={{ fontSize: 26, fontWeight: 700, margin: 0, color: "var(--text-color)" }}>{selectedHistoryCycle.total}</dd></div>
-                <div><dt style={{ fontSize: 14, color: "var(--muted)", marginBottom: 4, textTransform: "uppercase", fontWeight: 600 }}>Thời gian thanh toán</dt><dd style={{ fontSize: 17, fontWeight: 500, margin: 0 }}>10:24 {selectedHistoryCycle.date}</dd></div>
-                <div><dt style={{ fontSize: 14, color: "var(--muted)", marginBottom: 4, textTransform: "uppercase", fontWeight: 600 }}>Phương thức</dt><dd style={{ fontSize: 17, fontWeight: 500, margin: 0 }}>Chuyển khoản VietQR (MB Bank)</dd></div>
-                <div><dt style={{ fontSize: 14, color: "var(--muted)", marginBottom: 4, textTransform: "uppercase", fontWeight: 600 }}>Mã giao dịch</dt><dd style={{ fontSize: 17, fontWeight: 500, margin: 0, fontFamily: "monospace" }}>FT26{selectedHistoryCycle.cycle.replace("Tháng ", "").replace("/", "")}8F7A</dd></div>
-              </dl>
-
-              <h4 style={{ fontSize: 16, marginBottom: 12, textTransform: "uppercase", fontWeight: 600, color: "var(--muted)" }}>Bảng kê chi tiết dịch vụ</h4>
-              <div style={{ background: "var(--bg-card)", borderRadius: 12, border: "1px solid var(--border-color)", overflow: "hidden", marginBottom: 24 }}>
-                <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left", fontSize: 13 }}>
-                  <thead style={{ background: "rgba(0,0,0,0.02)", borderBottom: "1px solid var(--border-color)" }}>
-                    <tr>
-                      <th style={{ padding: "12px 16px", fontWeight: 600, color: "var(--muted)", textAlign: "left" }}>Tên dịch vụ</th>
-                      <th style={{ padding: "12px 16px", fontWeight: 600, color: "var(--muted)", textAlign: "right" }}>Số lượng</th>
-                      <th style={{ padding: "12px 16px", fontWeight: 600, color: "var(--muted)", textAlign: "right" }}>Đơn vị tính</th>
-                      <th style={{ padding: "12px 16px", fontWeight: 600, color: "var(--muted)", textAlign: "right" }}>Đơn giá</th>
-                      <th style={{ padding: "12px 16px", fontWeight: 600, color: "var(--muted)", textAlign: "right" }}>Tổng tiền</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {selectedHistoryCycle.items.map((item, idx) => (
-                      <tr key={idx} style={{ borderBottom: idx === selectedHistoryCycle.items.length - 1 ? "none" : "1px solid var(--border-color)" }}>
-                        <td style={{ padding: "12px 16px", fontWeight: 600 }}>{item.name}</td>
-                        <td style={{ padding: "12px 16px", textAlign: "right" }}>{item.quantity}</td>
-                        <td style={{ padding: "12px 16px", textAlign: "right", color: "var(--muted)" }}>{item.unit}</td>
-                        <td style={{ padding: "12px 16px", textAlign: "right", color: "var(--muted)" }}>{item.price}</td>
-                        <td style={{ padding: "12px 16px", fontWeight: 600, color: "var(--text-color)", textAlign: "right" }}>{item.cost}</td>
-                      </tr>
-                    ))}
-                    <tr style={{ borderTop: "2px solid var(--border-color)", background: "rgba(0,0,0,0.01)" }}>
-                      <td colSpan={3} style={{ padding: "12px 16px" }}></td>
-                      <td style={{ padding: "12px 16px", textAlign: "right", color: "var(--muted)", fontWeight: 500 }}>Tạm tính:</td>
-                      <td style={{ padding: "12px 16px", textAlign: "right", fontWeight: 600 }}>{selectedHistoryCycle.subtotal}</td>
-                    </tr>
-                    <tr style={{ background: "rgba(0,0,0,0.01)" }}>
-                      <td colSpan={3} style={{ padding: "12px 16px" }}></td>
-                      <td style={{ padding: "12px 16px", textAlign: "right", color: "var(--muted)", fontWeight: 500 }}>Thuế VAT (10%):</td>
-                      <td style={{ padding: "12px 16px", textAlign: "right", fontWeight: 600 }}>{selectedHistoryCycle.vat}</td>
-                    </tr>
-                    <tr style={{ background: "rgba(0,0,0,0.03)", borderTop: "1px solid var(--border-color)" }}>
-                      <td colSpan={3} style={{ padding: "12px 16px" }}></td>
-                      <td style={{ padding: "12px 16px", textAlign: "right", fontWeight: 700 }}>Tổng cộng:</td>
-                      <td style={{ padding: "12px 16px", textAlign: "right", fontWeight: 700, color: "var(--purple)", fontSize: 15 }}>{selectedHistoryCycle.total}</td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-
-              <h4 style={{ fontSize: 16, marginBottom: 12, textTransform: "uppercase", fontWeight: 600, color: "var(--muted)" }}>Thông tin e-Invoice</h4>
-              <div style={{ background: "var(--bg-card)", padding: 20, borderRadius: 12, border: "1px solid var(--border-color)", fontSize: 15, lineHeight: 1.6, marginBottom: 24 }}>
-                {selectedHistoryCycle.invoice ? (
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px 24px" }}>
-                    <div><strong style={{ color: "var(--muted)" }}>Đơn vị mua:</strong> <div style={{ fontWeight: 500, marginTop: 2 }}>{einvoiceCompany}</div></div>
-                    <div><strong style={{ color: "var(--muted)" }}>Mã số thuế:</strong> <div style={{ fontWeight: 500, marginTop: 2 }}>{einvoiceTaxId}</div></div>
-                    <div><strong style={{ color: "var(--muted)" }}>Địa chỉ:</strong> <div style={{ fontWeight: 500, marginTop: 2 }}>{einvoiceAddress}</div></div>
-                    <div><strong style={{ color: "var(--muted)" }}>Email nhận:</strong> <div style={{ fontWeight: 500, marginTop: 2 }}>{einvoiceEmail}</div></div>
-                  </div>
-                ) : (
-                  <div style={{ color: "var(--muted)", fontStyle: "italic" }}>Giao dịch thanh toán không yêu cầu xuất hóa đơn VAT điện tử.</div>
-                )}
-              </div>
-
-              <div style={{ display: "flex", gap: 12, justifyContent: "flex-end", borderTop: "1px solid var(--border-color)", paddingTop: 20 }}>
-                <button className="invoice-secondary" onClick={() => setSelectedHistoryCycle(null)}>Quay lại</button>
-                <button className="primary-button" onClick={() => showNotice("Đã tải chứng từ thanh toán")}>⇩ Tải chứng từ thanh toán (PDF)</button>
-                {selectedHistoryCycle.invoice && <button className="primary-button" style={{ background: "var(--purple)" }} onClick={() => showNotice("Đã tải hóa đơn điện tử e-Invoice VAT (.pdf)")}>⇩ Tải Hóa đơn điện tử VAT (.pdf)</button>}
-              </div>
+          {/* Right Sticky Summary Card */}
+          <div className="panel invoice-summary" style={{ padding: "20px", background: "white", borderRadius: "10px", border: "1px solid var(--border-color)", boxShadow: "0 1px 6px rgba(0,0,0,0.02)", position: "sticky", top: "16px" }}>
+            <div className="invoice-status-line" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "6px" }}>
+              <span className="invoice-label" style={{ fontSize: "11.5px", fontWeight: 700, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.5px" }}>KỲ THANH TOÁN</span>
+              <span className="invoice-payment-status paid" style={{ display: "inline-flex", alignItems: "center", gap: "4px", fontSize: "12px", fontWeight: 600, color: "#10b981", background: "rgba(16,185,129,0.1)", padding: "2px 8px", borderRadius: "10px" }}>
+                <i style={{ width: "5px", height: "5px", borderRadius: "50%", background: "currentColor" }} />
+                Đã thanh toán
+              </span>
             </div>
-          )}
+            <h3 style={{ fontSize: "16px", fontWeight: 700, margin: "2px 0 2px", color: "#0f172a" }}>{selectedHistoryCycle.cycle}</h3>
+            <div style={{ fontSize: "12px", color: "var(--muted)", marginBottom: "12px" }}>Thanh toán lúc {selectedHistoryCycle.time} ngày {selectedHistoryCycle.date}</div>
+
+            <dl style={{ margin: "0 0 16px" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", borderBottom: "1px solid var(--border-color)", fontSize: "13.5px" }}>
+                <dt style={{ color: "var(--muted)" }}>Tạm tính</dt>
+                <dd style={{ margin: 0, fontWeight: 600 }}>{selectedHistoryCycle.subtotal}</dd>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", borderBottom: "1px solid var(--border-color)", fontSize: "13.5px" }}>
+                <dt style={{ color: "var(--muted)" }}>Thuế VAT (10%)</dt>
+                <dd style={{ margin: 0, fontWeight: 600 }}>{selectedHistoryCycle.vat}</dd>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0 0", fontSize: "14px" }}>
+                <dt style={{ fontWeight: 700, color: "#0f172a" }}>Tổng thanh toán</dt>
+                <dd style={{ margin: 0, fontSize: "18px", fontWeight: 700, color: "var(--purple)" }}>{selectedHistoryCycle.total}</dd>
+              </div>
+            </dl>
+
+            {/* VAT Toggle Checkbox */}
+            <div style={{ background: "var(--bg-card)", padding: "10px 12px", borderRadius: "6px", border: "1px solid var(--border-color)", marginBottom: "14px" }}>
+              <label style={{ display: "flex", alignItems: "center", gap: "8px", cursor: "pointer", fontWeight: 500, margin: 0, fontSize: "13px" }}>
+                <input type="checkbox" checked={selectedHistoryCycle.invoice} readOnly style={{ width: "14px", height: "14px" }} />
+                <span>Xuất hóa đơn VAT điện tử (e-Invoice)</span>
+              </label>
+              {selectedHistoryCycle.invoice && (
+                <div style={{ marginTop: "6px", paddingTop: "6px", borderTop: "1px dashed var(--border-color)", display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "12px" }}>
+                  <div style={{ color: "var(--muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "210px" }}>
+                    <strong>{einvoiceCompany}</strong>
+                  </div>
+                  <button type="button" style={{ border: "none", background: "none", color: "var(--purple)", cursor: "pointer", fontSize: "12px", fontWeight: 600, padding: 0 }} onClick={() => setShowInvoiceModal(true)}>
+                    Sửa ✎
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Actions */}
+            <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+              <button className="primary-button" onClick={() => showNotice(selectedHistoryCycle.invoice ? `Đã tải hoá đơn điện tử VAT kỳ ${selectedHistoryCycle.cycle}` : "Đã tải chứng từ thanh toán")} style={{ width: "100%", height: "36px", padding: 0, fontSize: "13.5px" }}>
+                {selectedHistoryCycle.invoice ? "Tải hóa đơn VAT (.pdf)" : "Tải chứng từ thanh toán"}
+              </button>
+              <button className="invoice-secondary" onClick={() => setSelectedHistoryCycle(null)} style={{ width: "100%", height: "36px", cursor: "pointer", fontSize: "13px", margin: 0 }}>
+                Quay lại danh sách lịch sử
+              </button>
+            </div>
+          </div>
         </div>
       </div>
-    </div>}
-  </div>;
+    );
+  }
+
+  return (
+    <div className="usage-total" style={{ padding: "8px 0" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) 340px", gap: "20px", alignItems: "start", width: "100%" }}>
+        {/* Left Panel: Invoice Breakdown Table */}
+        <div className="panel" style={{ padding: "28px 32px", background: "white", borderRadius: "12px", border: "1px solid var(--border-color)", boxShadow: "0 2px 12px rgba(0,0,0,0.03)" }}>
+          {/* Heading */}
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "20px", paddingBottom: "16px", borderBottom: "1px solid var(--border-color)" }}>
+            <div>
+              <h2 style={{ margin: 0, fontSize: "20px", fontWeight: 700, color: "var(--text-color)" }}>App VietFin Digital</h2>
+              <div style={{ fontSize: "14px", color: "var(--muted)", marginTop: "4px" }}>
+                Kỳ sử dụng: <strong style={{ color: "var(--text-color)" }}>Tháng 07/2026</strong> (01/07/2026 – 31/07/2026)
+              </div>
+            </div>
+            <div style={{ textAlign: "right" }}>
+              <div style={{ fontSize: "14px", color: "var(--muted)" }}>Mã hóa đơn: <strong style={{ color: "var(--text-color)" }}>CAS-2026-07-001</strong></div>
+            </div>
+          </div>
+
+          {/* Table */}
+          <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left" }} className="billing-breakdown">
+            <thead>
+              <tr style={{ background: "var(--bg-card)", borderBottom: "1px solid var(--border-color)" }}>
+                <th style={{ padding: "12px 14px", fontWeight: 600, fontSize: "13px", color: "var(--muted)", textTransform: "uppercase", textAlign: "left" }}>Tên dịch vụ</th>
+                <th style={{ padding: "12px 14px", fontWeight: 600, fontSize: "13px", color: "var(--muted)", textTransform: "uppercase", textAlign: "right" }}>Số lượng</th>
+                <th style={{ padding: "12px 14px", fontWeight: 600, fontSize: "13px", color: "var(--muted)", textTransform: "uppercase", textAlign: "right" }}>Đơn vị tính</th>
+                <th style={{ padding: "12px 14px", fontWeight: 600, fontSize: "13px", color: "var(--muted)", textTransform: "uppercase", textAlign: "right" }}>Đơn giá</th>
+                <th style={{ padding: "12px 14px", fontWeight: 600, fontSize: "13px", color: "var(--muted)", textTransform: "uppercase", textAlign: "right" }}>Tổng tiền</th>
+              </tr>
+            </thead>
+            <tbody>
+              {billingItems.map((item, idx) => (
+                <tr key={idx} style={{ borderBottom: "1px solid var(--border-color)" }}>
+                  <td style={{ padding: "12px 14px", textAlign: "left" }}>
+                    <strong style={{ color: "var(--text-color)" }}>{item.name}</strong>
+                  </td>
+                  <td style={{ padding: "12px 14px", textAlign: "right" }}>{item.quantity}</td>
+                  <td style={{ padding: "12px 14px", textAlign: "right", color: "var(--muted)" }}>{item.unit}</td>
+                  <td style={{ padding: "12px 14px", textAlign: "right", color: "var(--muted)" }}>{item.price}</td>
+                  <td style={{ padding: "12px 14px", textAlign: "right" }}><strong>{item.cost}</strong></td>
+                </tr>
+              ))}
+
+              {/* Totals inside table */}
+              <tr style={{ borderTop: "2px solid var(--border-color)", background: "rgba(0,0,0,0.01)" }}>
+                <td colSpan={3} style={{ padding: "12px 14px" }}></td>
+                <td style={{ padding: "12px 14px", textAlign: "right", color: "var(--muted)", fontWeight: 500, fontSize: "14px" }}>Tạm tính:</td>
+                <td style={{ padding: "12px 14px", textAlign: "right", fontWeight: 600, fontSize: "15px" }}>₫250,404,000</td>
+              </tr>
+              <tr style={{ background: "rgba(0,0,0,0.01)" }}>
+                <td colSpan={3} style={{ padding: "12px 14px" }}></td>
+                <td style={{ padding: "12px 14px", textAlign: "right", color: "var(--muted)", fontWeight: 500, fontSize: "14px" }}>Thuế VAT (10%):</td>
+                <td style={{ padding: "12px 14px", textAlign: "right", fontWeight: 600, fontSize: "15px" }}>₫25,040,400</td>
+              </tr>
+              <tr style={{ background: "rgba(0,0,0,0.03)", borderTop: "1px solid var(--border-color)" }}>
+                <td colSpan={3} style={{ padding: "12px 14px" }}></td>
+                <td style={{ padding: "12px 14px", textAlign: "right", fontWeight: 700, fontSize: "15px" }}>Tổng cộng:</td>
+                <td style={{ padding: "12px 14px", textAlign: "right", fontWeight: 700, color: "var(--purple)", fontSize: "18px" }}>₫275,444,400</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        {/* Right Sticky Summary Card */}
+        <div className="panel invoice-summary" style={{ padding: "20px", background: "white", borderRadius: "10px", border: "1px solid var(--border-color)", boxShadow: "0 1px 6px rgba(0,0,0,0.02)", position: "sticky", top: "16px" }}>
+          <div className="invoice-status-line" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "6px" }}>
+            <span className="invoice-label" style={{ fontSize: "11.5px", fontWeight: 700, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.5px" }}>KỲ THANH TOÁN</span>
+            <span className={`invoice-payment-status ${paymentState}`} style={{ display: "inline-flex", alignItems: "center", gap: "4px", fontSize: "12px", fontWeight: 600, color: paymentState === "paid" ? "#10b981" : "#d97706", background: paymentState === "paid" ? "rgba(16,185,129,0.1)" : "rgba(217,119,6,0.1)", padding: "2px 8px", borderRadius: "10px" }}>
+              <i style={{ width: "5px", height: "5px", borderRadius: "50%", background: "currentColor" }} />
+              {paymentState === "paid" ? "Đã thanh toán" : "Chưa thanh toán"}
+            </span>
+          </div>
+          <h3 style={{ fontSize: "16px", fontWeight: 700, margin: "2px 0 12px", color: "#0f172a" }}>Tháng 07/2026</h3>
+
+          <dl style={{ margin: "0 0 16px" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", borderBottom: "1px solid var(--border-color)", fontSize: "13.5px" }}>
+              <dt style={{ color: "var(--muted)" }}>Tạm tính</dt>
+              <dd style={{ margin: 0, fontWeight: 600 }}>₫250,404,000</dd>
+            </div>
+            <div style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", borderBottom: "1px solid var(--border-color)", fontSize: "13.5px" }}>
+              <dt style={{ color: "var(--muted)" }}>Thuế VAT (10%)</dt>
+              <dd style={{ margin: 0, fontWeight: 600 }}>₫25,040,400</dd>
+            </div>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0 0", fontSize: "14px" }}>
+              <dt style={{ fontWeight: 700, color: "#0f172a" }}>Tổng thanh toán</dt>
+              <dd style={{ margin: 0, fontSize: "18px", fontWeight: 700, color: "var(--purple)" }}>₫275,444,400</dd>
+            </div>
+          </dl>
+
+          {/* VAT Toggle Checkbox */}
+          <div style={{ background: "var(--bg-card)", padding: "10px 12px", borderRadius: "6px", border: "1px solid var(--border-color)", marginBottom: "14px" }}>
+            <label style={{ display: "flex", alignItems: "center", gap: "8px", cursor: "pointer", fontWeight: 500, margin: 0, fontSize: "13px" }}>
+              <input type="checkbox" checked={wantEinvoice} onChange={e => {
+                const checked = e.target.checked;
+                setWantEinvoice(checked);
+                if (checked) setShowInvoiceModal(true);
+              }} style={{ width: "14px", height: "14px" }} />
+              <span>Xuất hóa đơn VAT điện tử (e-Invoice)</span>
+            </label>
+            {wantEinvoice && (
+              <div style={{ marginTop: "6px", paddingTop: "6px", borderTop: "1px dashed var(--border-color)", display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "12px" }}>
+                <div style={{ color: "var(--muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "210px" }}>
+                  <strong>{einvoiceCompany}</strong>
+                </div>
+                <button type="button" style={{ border: "none", background: "none", color: "var(--purple)", cursor: "pointer", fontSize: "12px", fontWeight: 600, padding: 0 }} onClick={() => setShowInvoiceModal(true)}>
+                  Sửa ✎
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Actions */}
+          <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+            {paymentState === "paid" ? (
+              <button className="primary-button" onClick={() => showNotice(wantEinvoice ? `Đã tải hoá đơn điện tử gửi tới ${einvoiceEmail}` : "Đã tải chứng từ thanh toán")} style={{ width: "100%", height: "36px", padding: 0, fontSize: "13.5px" }}>
+                {wantEinvoice ? "Tải hóa đơn VAT (.pdf)" : "Tải chứng từ thanh toán"}
+              </button>
+            ) : (
+              <button className="primary-button payment-button" onClick={() => setPaymentState("scanning")} style={{ width: "100%", height: "38px", padding: 0, background: "var(--purple)", fontWeight: 600, fontSize: "14px" }}>
+                Thanh toán
+              </button>
+            )}
+            <button className="invoice-secondary" onClick={() => onNavigateHistory?.()} style={{ width: "100%", height: "36px", cursor: "pointer", fontSize: "13px", margin: 0 }}>
+              Xem lịch sử thanh toán
+            </button>
+          </div>
+        </div>
+      </div>
+      {paymentState === "scanning" && <div className="payment-screen" role="dialog" aria-modal="true" aria-labelledby="payment-title">
+        <div className="payment-modal">
+          <div className="payment-heading"><div><span>THANH TOÁN HOÁ ĐƠN</span><h2 id="payment-title">Quét mã QR để thanh toán</h2></div><button aria-label="Đóng" onClick={() => setPaymentState("unpaid")}>×</button></div>
+          <div className="payment-content">
+            <div className="payment-qr"><div className="qr-noise"><i /><i /><i /></div><small>VIETQR</small></div>
+            <div className="payment-info">
+              <span>SỐ TIỀN THANH TOÁN</span><strong>₫380,835,400</strong>
+              <dl><div><dt>Ngân hàng</dt><dd>MB Bank</dd></div><div><dt>Người nhận</dt><dd>CAS VIETNAM JSC</dd></div><div><dt>Nội dung</dt><dd>CAS APP8F2 JUL2026</dd></div><div><dt>Hết hạn</dt><dd>14:59</dd></div></dl>
+              {wantEinvoice && <div className="payment-einvoice-strip">
+                <div>
+                  <span>📝 HÓA ĐƠN ĐIỆN TỬ:</span>
+                  <strong>{einvoiceCompany}</strong> (MST: {einvoiceTaxId}) · <em>{einvoiceEmail}</em>
+                </div>
+                <button type="button" onClick={() => setShowInvoiceModal(true)}>Sửa</button>
+              </div>}
+              <p style={{ marginTop: "12px" }}>Mở ứng dụng ngân hàng, quét mã và giữ nguyên nội dung chuyển khoản.</p>
+              <button className="primary-button" onClick={() => { setPaymentState("paid"); showNotice(wantEinvoice ? `Thanh toán thành công! Hóa đơn đã gửi tới ${einvoiceEmail}` : "Thanh toán thành công!"); }}>Mô phỏng thanh toán thành công</button>
+              <button onClick={() => setPaymentState("unpaid")}>Huỷ thanh toán</button>
+            </div>
+          </div>
+        </div>
+      </div>}
+
+      {showInvoiceModal && <div className="payment-screen" role="dialog" aria-modal="true" aria-labelledby="invoice-modal-title">
+        <div className="invoice-modal-dialog">
+          <div className="payment-heading">
+            <div><span>THÔNG TIN THUẾ & HÓA ĐƠN</span><h2 id="invoice-modal-title">Cấu hình hóa đơn điện tử VAT</h2></div>
+            <button aria-label="Đóng" onClick={() => setShowInvoiceModal(false)}>×</button>
+          </div>
+          <div className="invoice-modal-body">
+            <div className="einvoice-field">
+              <label>Tên đơn vị mua hàng / Công ty <b className="req">*</b></label>
+              <input type="text" value={einvoiceCompany} onChange={e => setEinvoiceCompany(e.target.value)} placeholder="VD: Công ty CP VietFin Digital" />
+            </div>
+            <div className="einvoice-field-row">
+              <div className="einvoice-field">
+                <label>Mã số thuế (MST) <b className="req">*</b></label>
+                <input type="text" value={einvoiceTaxId} onChange={e => setEinvoiceTaxId(e.target.value)} placeholder="VD: 0317849201" />
+              </div>
+              <div className="einvoice-field">
+                <label>Email nhận HĐĐT <b className="req">*</b></label>
+                <input type="email" value={einvoiceEmail} onChange={e => setEinvoiceEmail(e.target.value)} placeholder="VD: ketoan@vietfin.vn" />
+              </div>
+            </div>
+            <div className="einvoice-field">
+              <label>Địa chỉ công ty (theo đăng ký kinh doanh)</label>
+              <input type="text" value={einvoiceAddress} onChange={e => setEinvoiceAddress(e.target.value)} placeholder="Nhập địa chỉ nhận hóa đơn" />
+            </div>
+            <div className="einvoice-field">
+              <label>Ghi chú trên hóa đơn (tùy chọn)</label>
+              <input type="text" value={einvoiceNote} onChange={e => setEinvoiceNote(e.target.value)} placeholder="VD: Mã hợp đồng, bộ phận nhận..." />
+            </div>
+            <div className="invoice-modal-actions">
+              <button type="button" className="invoice-cancel-btn" onClick={() => setShowInvoiceModal(false)}>Hủy</button>
+              <button type="button" className="primary-button" onClick={() => { setShowInvoiceModal(false); showNotice("Đã lưu thông tin xuất hóa đơn VAT"); }}>Lưu thông tin hóa đơn</button>
+            </div>
+          </div>
+        </div>
+      </div>}
+    </div>
+  );
 }
 
 function UsageRecordsTable({ tab, search, onSearch, timeFilter, onTimeFilter, page, setPage, pageSize, setPageSize, showNotice }: {
@@ -1677,14 +2147,55 @@ function UsageRecordsTable({ tab, search, onSearch, timeFilter, onTimeFilter, pa
   const [selectedBank, setSelectedBank] = useState("Tất cả ngân hàng");
 
   function autoWidthFor(index: number) {
-    const values = [data.columns[index], ...data.rows.map(row => row[index] ?? "")];
+    const colName = data.columns[index] || "";
+    const colLower = colName.toLowerCase();
+    const values = [colName, ...data.rows.map(row => row[index] ?? "")];
     const longest = Math.max(...values.map(value => String(value).length));
-    const extra = data.columns[index] === "Ngân hàng" ? 54 : 32;
-    const maximum = data.columns[index] === "Scope" ? 320 : 280;
-    return Math.min(maximum, Math.max(data.columns[index] === "STT" ? 58 : 82, longest * 7 + extra));
+
+    let minWidth = 95;
+    let extra = 38;
+
+    if (colName === "STT") {
+      return 60;
+    }
+    if (colLower.includes("ngân hàng") || colLower.includes("bank")) {
+      minWidth = 165;
+      extra = 65;
+    } else if (colLower.includes("status") || colLower.includes("trạng thái") || colLower.includes("thông báo")) {
+      minWidth = 120;
+      extra = 48;
+    } else if (colLower.includes("direct url") || colLower.includes("url") || colLower.includes("endpoint")) {
+      minWidth = 280;
+      extra = 45;
+    } else if (colLower.includes("tên") || colLower.includes("người nhận") || colLower.includes("tài khoản")) {
+      minWidth = 165;
+      extra = 42;
+    } else if (colLower.includes("ngày") || colLower.includes("thời gian")) {
+      minWidth = 165;
+      extra = 42;
+    } else if (colLower.includes("số tiền") || colLower.includes("giá trị") || colLower.includes("chi phí")) {
+      minWidth = 135;
+      extra = 42;
+    } else if (colLower.includes("nội dung") || colLower.includes("reference")) {
+      minWidth = 190;
+      extra = 42;
+    } else if (colLower.includes("id")) {
+      minWidth = 145;
+      extra = 42;
+    }
+
+    const calculated = longest * 8 + extra;
+    return Math.max(minWidth, calculated);
   }
+
   const [columnWidths, setColumnWidths] = useState(() => data.columns.map((_, index) => autoWidthFor(index)));
   const [resizingColumn, setResizingColumn] = useState<number | null>(null);
+
+  useEffect(() => {
+    setColumnWidths(data.columns.map((_, index) => autoWidthFor(index)));
+    setSelectedStatus("Tất cả trạng thái");
+    setSelectedBank("Tất cả ngân hàng");
+  }, [tab]);
 
   const statusValues = ["New", "Accepted", "Active", "Inactive", "Paused", "Deleted", "Success", "Failed", "Processing", "Paid", "Pending", "Expired", "Cancelled", "Verified", "Rejected", "Issued", "Delivered", "Retrying", "Chưa phát sinh"];
   const bankMarks: Record<string, string> = { Techcombank: "TCB", Vietcombank: "VCB", "MB Bank": "MB", ACB: "ACB", BIDV: "BIDV", Sacombank: "STB", VietinBank: "VTB", VPBank: "VPB", TPBank: "TPB" };
@@ -1850,7 +2361,7 @@ function LogsScreen({ logRecordsData, showNotice }: { logRecordsData: LogRecord[
   return <section className="logs-screen">
     <div className="logs-search-row">
       <select aria-label="Loại log"><option>Request Log</option><option>Webhook Log</option></select>
-      <label><span>⌕</span><input value={query} onChange={e => { setQuery(e.target.value); setPage(1); }} placeholder="Tìm bằng Request ID, Grant ID hoặc endpoint" /></label>
+      <label><input value={query} onChange={e => { setQuery(e.target.value); setPage(1); }} placeholder="Tìm bằng Request ID, Grant ID hoặc endpoint" /></label>
     </div>
     <div className="logs-filter-row">
       <div>
@@ -1859,20 +2370,30 @@ function LogsScreen({ logRecordsData, showNotice }: { logRecordsData: LogRecord[
         <select value={timeRange} onChange={e => setTimeRange(e.target.value)} aria-label="Thời gian"><option>24 giờ qua</option><option>7 ngày qua</option><option>30 ngày qua</option></select>
         <select value={bank} onChange={e => { setBank(e.target.value); setPage(1); }} aria-label="Ngân hàng"><option>Tất cả ngân hàng</option>{[...new Set(logRecordsData.map(log => log.bank))].map(item => <option key={item}>{item}</option>)}</select>
       </div>
-      <button className="logs-reset" onClick={resetFilters}>↻ Đặt lại</button>
-      <button className="logs-export" onClick={exportLogs}>⇩ Xuất logs</button>
+      <button className="logs-reset" onClick={resetFilters} title="Đặt lại bộ lọc" style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 36, height: 36, padding: 0, borderRadius: 6, cursor: "pointer", color: "#4b5563" }}>
+        <RotateIcon size={18} />
+      </button>
+      <button className="logs-export" onClick={exportLogs}>Xuất logs</button>
     </div>
     <div className="logs-table-wrap">
       <table className="logs-table">
-        <thead><tr><th /><th>Request ID</th><th>Ngân hàng</th><th>Trạng thái HTTP</th><th>Đường dẫn request</th><th>Grant ID</th><th>Ngày tạo</th></tr></thead>
+        <thead>
+          <tr>
+            <th style={{ width: "240px" }}>REQUEST ID</th>
+            <th style={{ width: "160px" }}>NGÂN HÀNG</th>
+            <th style={{ width: "150px" }}>TRẠNG THÁI HTTP</th>
+            <th style={{ width: "220px" }}>ĐƯỜNG DẪN REQUEST</th>
+            <th style={{ width: "180px" }}>GRANT ID</th>
+            <th>NGÀY TẠO</th>
+          </tr>
+        </thead>
         <tbody>{visible.map(log => <tr key={log.requestId} tabIndex={0} onClick={() => { setSelectedLog(log); setDetailTab("request"); }} onKeyDown={e => { if (e.key === "Enter" || e.key === " ") setSelectedLog(log); }}>
-          <td><span className="row-chevron">›</span></td>
-          <td><strong>{log.requestId}</strong><small>{log.method} · {log.scope}</small></td>
-          <td>{log.bank}</td>
+          <td><strong style={{ color: "#000", fontSize: 13.5, fontFamily: "monospace" }}>{log.requestId}</strong></td>
+          <td style={{ color: "#000" }}>{log.bank}</td>
           <td><span className={`log-http ${log.http.startsWith("2") ? "success" : "failed"}`}>{log.http.startsWith("2") ? "✓" : "×"} {log.http}</span></td>
-          <td><code>{log.endpoint}</code></td>
-          <td><code>{log.grantId}</code></td>
-          <td>{log.createdAt}<small>{log.latency}</small></td>
+          <td><code style={{ color: "#000", fontFamily: "monospace", fontSize: 13 }}>{log.endpoint}</code></td>
+          <td><code style={{ color: "#000", fontFamily: "monospace", fontSize: 13 }}>{log.grantId}</code></td>
+          <td style={{ color: "#000" }}>{log.createdAt}</td>
         </tr>)}</tbody>
       </table>
       {visible.length === 0 && <div className="empty-result">Không tìm thấy request log phù hợp.</div>}
@@ -1898,733 +2419,1799 @@ function LogsScreen({ logRecordsData, showNotice }: { logRecordsData: LogRecord[
         </dl>
         <div className="log-detail-tabs"><button className={detailTab === "request" ? "active" : ""} onClick={() => setDetailTab("request")}>Request</button><button className={detailTab === "response" ? "active" : ""} onClick={() => setDetailTab("response")}>Response</button></div>
         <div className="log-code-section">
-          <div><span>{detailTab === "request" ? "Request body" : "Response body"}</span><button onClick={() => { navigator.clipboard?.writeText(detailTab === "request" ? selectedLog.requestBody : selectedLog.responseBody); showNotice("Đã sao chép JSON"); }}>Sao chép</button></div>
-          <pre><code>{detailTab === "request" ? selectedLog.requestBody : selectedLog.responseBody}</code></pre>
+          <div>
+            <span>{detailTab === "request" ? "Request body" : "Response body"}</span>
+            <button onClick={() => { navigator.clipboard?.writeText(detailTab === "request" ? selectedLog.requestBody : selectedLog.responseBody); showNotice("Đã sao chép JSON"); }}>
+              Sao chép
+            </button>
+          </div>
+          <pre>
+            <code
+              dangerouslySetInnerHTML={{
+                __html: (() => {
+                  try {
+                    const raw = detailTab === "request" ? selectedLog.requestBody : selectedLog.responseBody;
+                    const parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
+                    const formatted = JSON.stringify(parsed, null, 2);
+                    return formatted
+                      .replace(/&/g, "&amp;")
+                      .replace(/</g, "&lt;")
+                      .replace(/>/g, "&gt;")
+                      .replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, match => {
+                        let style = "color: #fde047;";
+                        if (/^"/.test(match)) {
+                          if (/:$/.test(match)) {
+                            style = "color: #93c5fd; font-weight: 600;";
+                          } else {
+                            style = "color: #86efac;";
+                          }
+                        } else if (/true|false/.test(match)) {
+                          style = "color: #f472b6; font-weight: 600;";
+                        } else if (/null/.test(match)) {
+                          style = "color: #94a3b8; font-style: italic;";
+                        }
+                        return `<span style="${style}">${match}</span>`;
+                      });
+                  } catch {
+                    return detailTab === "request" ? selectedLog.requestBody : selectedLog.responseBody;
+                  }
+                })(),
+              }}
+            />
+          </pre>
         </div>
-        <div className="log-headers"><h3>Headers</h3><div><span>x-request-id</span><code>{selectedLog.requestId}</code></div><div><span>x-client-id</span><code>33d42bee-••••-••••-••••-51e958e065ae</code></div><div><span>content-type</span><code>application/json</code></div></div>
+        <div className="log-headers">
+          <h3>Headers</h3>
+          <div><span>x-request-id</span><code>{selectedLog.requestId}</code></div>
+          <div><span>x-client-id</span><code>33d42bee-••••-••••-••••-51e958e065ae</code></div>
+          <div><span>content-type</span><code>application/json</code></div>
+        </div>
       </aside>
     </div>}
   </section>;
 }
 
-function OnboardingScreen({ enabledScopes, setEnabledScopes, onNavigate, showNotice }: { enabledScopes: AnalyticsTab[]; setEnabledScopes: React.Dispatch<React.SetStateAction<AnalyticsTab[]>>; onNavigate: (page: string) => void; showNotice: (message: string) => void }) {
-  const [draftScopes, setDraftScopes] = useState<AnalyticsTab[]>(enabledScopes);
-
-  const allServices: { key: AnalyticsTab; title: string; desc: string; price: string }[] = [
-    { key: "Transaction", title: "Transaction API", desc: "Lịch sử giao dịch & truy vấn sao kê ngân hàng", price: "50đ / call" },
-    { key: "QRPay", title: "QRPay API", desc: "Tạo & nhận thanh toán VietQR / Dynamic QR", price: "40đ / GD" },
-    { key: "Deeplink", title: "Deeplink API", desc: "Khởi tạo link gọi app ngân hàng thanh toán", price: "100đ / lượt" },
-    { key: "VirtualAccount", title: "Virtual Account", desc: "Tài khoản định danh thu hộ tự động", price: "1.000đ / VA" },
-    { key: "BalanceHook", title: "Balance Hook", desc: "Webhook thông báo biến động số dư realtime", price: "300đ / thông báo" },
-    { key: "Transfer", title: "Transfer API", desc: "Chuyển tiền nhanh 24/7 qua API", price: "2.000đ / GD" },
-    { key: "Identity", title: "Identity API", desc: "Truy vấn & xác thực chủ tài khoản ngân hàng", price: "60đ / call" },
-    { key: "Balance", title: "Balance API", desc: "Tra cứu số dư tài khoản ngân hàng tức thì", price: "35đ / call" },
-    { key: "eKYC", title: "eKYC Verification", desc: "Xác thực khuôn mặt & đọc thông tin CCCD", price: "80đ / lượt" },
-    { key: "Invoice", title: "Invoice API", desc: "Quản lý & tra cứu hoá đơn điện tử", price: "50đ / HĐ" },
-  ];
-
-  function toggleScope(key: AnalyticsTab) {
-    if (draftScopes.includes(key)) {
-      if (draftScopes.length <= 1) {
-        showNotice("App cần giữ ít nhất 1 dịch vụ API");
-        return;
-      }
-      setDraftScopes(draftScopes.filter(k => k !== key));
-    } else {
-      setDraftScopes([...draftScopes, key]);
-    }
-  }
-
-  function handleSave() {
-    setEnabledScopes(draftScopes);
-    showNotice(`✓ Đã lưu thành công ${draftScopes.length} dịch vụ API! Sidebar Usage đã được cập nhật.`);
-  }
-
-  const isModified = JSON.stringify([...draftScopes].sort()) !== JSON.stringify([...enabledScopes].sort());
-
-  return <div className="onboarding-layout">
-    <section className="onboarding-welcome">
-      <div><span className="guide-eyebrow">QUICK START</span><h2>Onboarding & Lựa chọn Dịch vụ API</h2><p>Chọn các dịch vụ Open Banking mà App muốn sử dụng. Bấm "Lưu danh sách dịch vụ" để cập nhật vào menu Usage.</p></div>
-      <FormButton variant="primary" size="md" onClick={() => onNavigate("Userguide")}>
-        Mở tài liệu API (Userguide) ↗
-      </FormButton>
-    </section>
-
-    {/* Scope Selector Section */}
-    <section className="scope-selector-section">
-      <div className="scope-selector-header">
-        <div>
-          <h3>Lựa chọn Dịch vụ API Onboarding ({draftScopes.length} / 10 đã chọn)</h3>
-          <p>Tích chọn dịch vụ cần dùng. Sau khi bấm "Lưu", menu Usage và tài liệu Hướng dẫn API (Userguide) sẽ hiển thị đúng danh sách đã chọn.</p>
-        </div>
-        <FormButton
-          variant={isModified ? "primary" : "secondary"}
-          size="md"
-          onClick={handleSave}
-        >
-          {isModified ? "💾 Lưu danh sách dịch vụ (Chưa lưu)" : "✓ Đã lưu danh sách dịch vụ"}
-        </FormButton>
-      </div>
-      <div className="scope-grid">
-        {allServices.map(srv => {
-          const active = draftScopes.includes(srv.key);
-          return (
-            <div
-              key={srv.key}
-              className={`scope-card ${active ? "active" : ""}`}
-              onClick={() => toggleScope(srv.key)}
-            >
-              <div className="scope-card-top">
-                <strong>{srv.title}</strong>
-                <input
-                  type="checkbox"
-                  checked={active}
-                  onChange={() => toggleScope(srv.key)}
-                  className="scope-checkbox"
-                  onClick={e => e.stopPropagation()}
-                />
-              </div>
-              <div className="scope-card-desc">{srv.desc}</div>
-              <div className="scope-card-footer">
-                <span>{srv.price}</span>
-                <span style={{ color: active ? "var(--purple)" : "var(--muted)" }}>{active ? "✓ Đã chọn" : "+ Bấm để chọn"}</span>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    </section>
-
-    <div className="sandbox-note" style={{ marginTop: 20 }}><span>i</span><div><strong>Hướng dẫn Onboarding</strong><p>Sau khi chọn xong dịch vụ, bạn có thể chuyển sang mục <strong>Userguide</strong> ở menu bên trái để xem hướng dẫn tích hợp chi tiết và thử nghiệm Sandbox.</p></div></div>
-  </div>;
-}
-
-function UserguideScreen({
-  enabledScopes,
+function IntroOverviewScreen({
+  onNavigate,
   showNotice,
-  onRunTest
 }: {
-  enabledScopes: AnalyticsTab[];
-  showNotice: (message: string) => void;
-  onRunTest: (scope: AnalyticsTab, params: { bank: string; amount?: string; accountName?: string; note?: string }) => void;
+  onNavigate: (page: string) => void;
+  showNotice: (msg: string) => void;
 }) {
-  const activeList = enabledScopes.length > 0 ? enabledScopes : ["Transaction", "QRPay", "Deeplink"];
-  const [selectedCategory, setSelectedCategory] = useState<string>(activeList[0] || "Transaction");
-  const [selectedApiIndex, setSelectedApiIndex] = useState<number>(0);
-  const [activeStep, setActiveStep] = useState<number>(1);
-
-  const [testBank, setTestBank] = useState("Techcombank");
-  const [testAmount, setTestAmount] = useState("1500000");
-  const [testAccountName, setTestAccountName] = useState("Nguyễn Minh Anh");
-  const [testNote, setTestNote] = useState("Thanh toan don hang #10928");
-
-  type ServiceProductDoc = {
-    title: string;
-    desc: string;
-    scopeName: string;
-    flow: { step: string; title: string; desc: string }[];
-    apis: {
-      name: string;
-      method: "POST" | "GET" | "DELETE";
-      url: string;
-      scope: string;
-      summary: string;
-      headers?: { name: string; type: string; req: boolean; desc: string }[];
-      params: { name: string; type: string; req: boolean; desc: string }[];
-      sampleReq: string;
-      sampleRes: string;
-    }[];
-  };
-
-  const productDocs: Record<string, ServiceProductDoc> = {
-    Transaction: {
-      title: "Bank Account Transaction History API",
-      desc: "API truy vấn lịch sử giao dịch sao kê tự động cho tài khoản ngân hàng kết nối (chuẩn Open Banking).",
-      scopeName: "transactions",
-      flow: [
-        { step: "Bước 1", title: "Khởi tạo Grant", desc: "Tạo grantToken với scope transactions." },
-        { step: "Bước 2", title: "Mở Cas Link", desc: "End-user đăng nhập tài khoản ngân hàng và cấp quyền." },
-        { step: "Bước 3", title: "Đổi accessToken & Gọi API", desc: "Đổi publicToken lấy accessToken và truy vấn sao kê." }
-      ],
-      apis: [
-        {
-          name: "Lấy danh sách giao dịch",
-          method: "GET",
-          url: "https://sandbox.bankhub.dev/v2/transactions",
-          scope: "transactions",
-          summary: "Truy vấn danh sách biến động số dư theo khoảng thời gian và phân trang.",
-          headers: [
-            { name: "Authorization", type: "String", req: true, desc: "Bearer <accessToken> nhận được sau khi kết nối Cas Link" },
-            { name: "x-client-id", type: "String", req: true, desc: "Client ID của ứng dụng" }
-          ],
-          params: [
-            { name: "fromDate", type: "String", req: true, desc: "Từ ngày tra cứu (định dạng YYYY-MM-DD, VD: 2026-08-01)" },
-            { name: "toDate", type: "String", req: true, desc: "Đến ngày tra cứu (định dạng YYYY-MM-DD, VD: 2026-08-14)" },
-            { name: "page", type: "Number", req: false, desc: "Số trang cần truy vấn (mặc định: 1)" },
-            { name: "pageSize", type: "Number", req: false, desc: "Số bản ghi trên mỗi trang (mặc định: 20, tối đa: 100)" }
-          ],
-          sampleReq: "GET /v2/transactions?fromDate=2026-08-01&toDate=2026-08-14&page=1&pageSize=20 HTTP/1.1\nHost: sandbox.bankhub.dev\nAuthorization: Bearer at_3f2e1d0c9b8a7c6d5e4fabcdef123456\nx-client-id: app_8F2KD91M",
-          sampleRes: "{\n  \"code\": \"00\",\n  \"desc\": \"Success\",\n  \"data\": {\n    \"page\": 1,\n    \"pageSize\": 20,\n    \"total\": 54,\n    \"records\": [\n      {\n        \"id\": \"txn_8920194812\",\n        \"reference\": \"FT26081498102931\",\n        \"amount\": 1500000,\n        \"description\": \"NGUYEN MINH ANH chuyen tien DH10928\",\n        \"transactionDate\": \"2026-08-14 15:42:10\",\n        \"type\": \"CREDIT\",\n        \"accountNumber\": \"19038291029102\",\n        \"bank\": \"Techcombank\",\n        \"corresponsiveAccount\": \"09823192019\",\n        \"corresponsiveName\": \"NGUYEN MINH ANH\"\n      }\n    ]\n  }\n}"
-        },
-        {
-          name: "Đồng bộ giao dịch tức thì",
-          method: "POST",
-          url: "https://sandbox.bankhub.dev/v2/transactions/sync",
-          scope: "transactions",
-          summary: "Kích hoạt đồng bộ giao dịch mới nhất trực tiếp từ ngân hàng vào hệ thống.",
-          headers: [
-            { name: "Authorization", type: "String", req: true, desc: "Bearer <accessToken>" },
-            { name: "Content-Type", type: "String", req: true, desc: "application/json" }
-          ],
-          params: [
-            { name: "bank", type: "String", req: true, desc: "Tên ngân hàng liên kết (Techcombank, Vietcombank...)" },
-            { name: "accountNumber", type: "String", req: true, desc: "Số tài khoản ngân hàng đã cấp quyền" }
-          ],
-          sampleReq: "{\n  \"bank\": \"Techcombank\",\n  \"accountNumber\": \"19038291029102\"\n}",
-          sampleRes: "{\n  \"code\": \"00\",\n  \"desc\": \"Sync triggered successfully\",\n  \"data\": {\n    \"syncedAt\": \"2026-08-14 17:30:00\",\n    \"newTransactions\": 3\n  }\n}"
-        }
-      ]
-    },
-    QRPay: {
-      title: "VietQR & Dynamic QRPay Solution",
-      desc: "Giải pháp khởi tạo mã VietQR động theo chuẩn Napas247 cho phép nhận tiền chuyển khoản ngân hàng tự động 24/7.",
-      scopeName: "qrpay",
-      flow: [
-        { step: "Bước 1", title: "Khởi tạo mã VietQR", desc: "Gọi POST /v2/qr/create truyền số tiền và nội dung đơn hàng." },
-        { step: "Bước 2", title: "Khách hàng quét mã", desc: "Mở App ngân hàng quét mã VietQR và xác nhận chuyển khoản." },
-        { step: "Bước 3", title: "Nhận Webhook tức thì", desc: "Hệ thống CAS tự động bắn Webhook báo kết quả tiền đã vào." }
-      ],
-      apis: [
-        {
-          name: "Tạo mã VietQR động",
-          method: "POST",
-          url: "https://sandbox.bankhub.dev/v2/qr/create",
-          scope: "qrpay",
-          summary: "Tạo mã VietQR kèm số tiền và nội dung chuyển khoản tự động.",
-          headers: [
-            { name: "Authorization", type: "String", req: true, desc: "Bearer <accessToken>" },
-            { name: "x-client-id", type: "String", req: true, desc: "Client ID ứng dụng" },
-            { name: "Content-Type", type: "String", req: true, desc: "application/json" }
-          ],
-          params: [
-            { name: "bank", type: "String", req: true, desc: "Mã ngân hàng (TCB, VCB, MB, ACB, BIDV...)" },
-            { name: "amount", type: "Number", req: true, desc: "Số tiền cần thanh toán (VNĐ)" },
-            { name: "note", type: "String", req: true, desc: "Nội dung chuyển khoản (VD: Thanh toan DH1029)" }
-          ],
-          sampleReq: "{\n  \"bank\": \"Vietcombank\",\n  \"amount\": 2500000,\n  \"note\": \"Thanh toan QR DH1029\"\n}",
-          sampleRes: "{\n  \"code\": \"00\",\n  \"desc\": \"Success\",\n  \"data\": {\n    \"qrId\": \"qr_8492019\",\n    \"qrImage\": \"https://qr.bankhub.dev/v2/image.png\",\n    \"qrRaw\": \"00020101021238580010A000000727...\"\n  }\n}"
-        },
-        {
-          name: "Tra cứu trạng thái QR",
-          method: "GET",
-          url: "https://sandbox.bankhub.dev/v2/qr/{id}/status",
-          scope: "qrpay",
-          summary: "Kiểm tra khách hàng đã quét mã và chuyển tiền thành công hay chưa.",
-          headers: [
-            { name: "Authorization", type: "String", req: true, desc: "Bearer <accessToken>" }
-          ],
-          params: [
-            { name: "qrId", type: "String", req: true, desc: "Mã định danh mã QR đã tạo" }
-          ],
-          sampleReq: "GET /v2/qr/qr_8492019/status HTTP/1.1\nHost: sandbox.bankhub.dev\nAuthorization: Bearer at_3f2e1d0c9b8a7c6d5e4fabcdef123456",
-          sampleRes: "{\n  \"code\": \"00\",\n  \"desc\": \"Success\",\n  \"data\": {\n    \"status\": \"PAID\",\n    \"qrId\": \"qr_8492019\",\n    \"amount\": 2500000,\n    \"paidAt\": \"2026-08-14 17:04:12\"\n  }\n}"
-        }
-      ]
-    },
-    Deeplink: {
-      title: "App-to-App Deeplink Solution",
-      desc: "Giải pháp tự động kích hoạt App ngân hàng trên điện thoại end-user với thông tin chuyển tiền đã được điền sẵn 100%.",
-      scopeName: "deeplink",
-      flow: [
-        { step: "Bước 1", title: "Khởi tạo Deeplink", desc: "Gọi POST /v2/deeplink/generate từ server Vendor." },
-        { step: "Bước 2", title: "Khách hàng nhấp Link", desc: "Tự động mở App Ngân hàng (Techcombank, VCB, MB...) trên Mobile." },
-        { step: "Bước 3", title: "Xác nhận & Chuyển tiền", desc: "Khách hàng nhập OTP/Vân tay để hoàn tất thanh toán." }
-      ],
-      apis: [
-        {
-          name: "Khởi tạo Deeplink",
-          method: "POST",
-          url: "https://sandbox.bankhub.dev/v2/deeplink/generate",
-          scope: "deeplink",
-          summary: "Tạo link chuyển hướng mở App Ngân hàng kèm thông tin điền sẵn.",
-          headers: [
-            { name: "Authorization", type: "String", req: true, desc: "Bearer <accessToken>" },
-            { name: "Content-Type", type: "String", req: true, desc: "application/json" }
-          ],
-          params: [
-            { name: "bank", type: "String", req: true, desc: "Tên/Mã ngân hàng nhận tiền" },
-            { name: "amount", type: "Number", req: true, desc: "Số tiền chuyển (VNĐ)" },
-            { name: "accountName", type: "String", req: true, desc: "Tên người thụ hưởng" },
-            { name: "note", type: "String", req: true, desc: "Nội dung chuyển khoản" }
-          ],
-          sampleReq: "{\n  \"bank\": \"Techcombank\",\n  \"amount\": 1500000,\n  \"accountName\": \"Nguyễn Minh Anh\",\n  \"note\": \"Thanh toan don hang #10928\"\n}",
-          sampleRes: "{\n  \"code\": \"00\",\n  \"desc\": \"Success\",\n  \"data\": {\n    \"deeplinkUrl\": \"https://dl.bankhub.dev/tcb/pay?id=req_DLK98124\",\n    \"expiresIn\": 1800\n  }\n}"
-        }
-      ]
-    },
-    VirtualAccount: {
-      title: "Virtual Account Collection Solution",
-      desc: "Tạo và quản lý các tài khoản thu hộ định danh cấp tự động cho từng khách hàng.",
-      scopeName: "virtual_account",
-      flow: [
-        { step: "Bước 1", title: "Tạo tài khoản VA", desc: "Gọi POST /v2/virtual-accounts cấp cho từng khách hàng." },
-        { step: "Bước 2", title: "Khách hàng nộp tiền", desc: "Chuyển tiền vào số tài khoản VA vừa cấp." },
-        { step: "Bước 3", title: "Nhận thông báo nộp tiền", desc: "Hệ thống tự động nhận diện và cộng tiền tức thì." }
-      ],
-      apis: [
-        {
-          name: "Tạo tài khoản VA mới",
-          method: "POST",
-          url: "https://sandbox.bankhub.dev/v2/virtual-accounts",
-          scope: "virtual_account",
-          summary: "Khởi tạo số tài khoản định danh thu hộ cho khách hàng.",
-          headers: [
-            { name: "Authorization", type: "String", req: true, desc: "Bearer <accessToken>" },
-            { name: "Content-Type", type: "String", req: true, desc: "application/json" }
-          ],
-          params: [
-            { name: "accountName", type: "String", req: true, desc: "Tên hiển thị tài khoản thu hộ" },
-            { name: "bank", type: "String", req: true, desc: "Ngân hàng liên kết (ACB, TCB, VCB...)" }
-          ],
-          sampleReq: "{\n  \"accountName\": \"Công ty CP Minh Long\",\n  \"bank\": \"ACB\"\n}",
-          sampleRes: "{\n  \"code\": \"00\",\n  \"desc\": \"Success\",\n  \"data\": {\n    \"accountNumber\": \"99021842019\",\n    \"accountName\": \"CAS MINH LONG\",\n    \"bank\": \"ACB\"\n  }\n}"
-        }
-      ]
-    },
-    Transfer: {
-      title: "24/7 API Money Transfer Solution",
-      desc: "Giải pháp thực hiện lệnh chuyển tiền nhanh Napas 24/7 tự động qua API.",
-      scopeName: "transfer",
-      flow: [
-        { step: "Bước 1", title: "Khởi tạo lệnh", desc: "Tạo request chuyển tiền kèm thông tin người thụ hưởng." },
-        { step: "Bước 2", title: "Xác thực giao dịch", desc: "Trình ký và xác thực iOTP / OTP." },
-        { step: "Bước 3", title: "Nhận kết quả 24/7", desc: "Nhận kết quả giao dịch và mã tham chiếu Napas." }
-      ],
-      apis: [
-        {
-          name: "Tạo lệnh chuyển tiền 24/7",
-          method: "POST",
-          url: "https://sandbox.bankhub.dev/v2/transfers",
-          scope: "transfer",
-          summary: "Tạo request lệnh chuyển tiền nhanh sang tài khoản bất kỳ.",
-          headers: [
-            { name: "Authorization", type: "String", req: true, desc: "Bearer <accessToken>" },
-            { name: "Content-Type", type: "String", req: true, desc: "application/json" }
-          ],
-          params: [
-            { name: "bank", type: "String", req: true, desc: "Ngân hàng nhận" },
-            { name: "accountNumber", type: "String", req: true, desc: "Số tài khoản nhận tiền" },
-            { name: "amount", type: "Number", req: true, desc: "Số tiền cần chuyển" },
-            { name: "note", type: "String", req: true, desc: "Nội dung chuyển khoản" }
-          ],
-          sampleReq: "{\n  \"bank\": \"Vietcombank\",\n  \"accountNumber\": \"1029381902\",\n  \"amount\": 5000000,\n  \"note\": \"Chi tra luong T8\"\n}",
-          sampleRes: "{\n  \"code\": \"00\",\n  \"desc\": \"Success\",\n  \"data\": {\n    \"transferId\": \"trf_98102938\",\n    \"status\": \"SUCCESS\",\n    \"napasRef\": \"NP260814981023\"\n  }\n}"
-        }
-      ]
-    },
-    BalanceHook: {
-      title: "Real-time Balance Webhook Notification",
-      desc: "Giải pháp bắn Webhook sự kiện biến động số dư tài khoản ngân hàng theo thời gian thực.",
-      scopeName: "balance_hook",
-      flow: [
-        { step: "Bước 1", title: "Khai báo Webhook", desc: "Khai báo URL nhận thông báo biến động số dư tại phần Webhooks." },
-        { step: "Bước 2", title: "Biến động số dư", desc: "Tài khoản ngân hàng phát sinh giao dịch tiền vào / tiền ra." },
-        { step: "Bước 3", title: "Bắn Webhook Event", desc: "CAS gửi payload JSON sang server của bạn trong 500ms." }
-      ],
-      apis: [
-        {
-          name: "Kiểm thử Balance Webhook",
-          method: "POST",
-          url: "https://sandbox.bankhub.dev/v2/balance/webhook/test",
-          scope: "balance_hook",
-          summary: "Gửi một payload Webhook sự kiện biến động số dư giả lập.",
-          headers: [
-            { name: "x-client-id", type: "String", req: true, desc: "Client ID ứng dụng" },
-            { name: "Content-Type", type: "String", req: true, desc: "application/json" }
-          ],
-          params: [
-            { name: "event", type: "String", req: true, desc: "Loại sự kiện (balance.credited, balance.debited)" },
-            { name: "amount", type: "Number", req: true, desc: "Số tiền phát sinh" }
-          ],
-          sampleReq: "{\n  \"event\": \"balance.credited\",\n  \"amount\": 5000000\n}",
-          sampleRes: "{\n  \"status\": \"DELIVERED\",\n  \"httpCode\": 200,\n  \"response\": \"OK\"\n}"
-        }
-      ]
-    }
-  };
-
-  const commonApis = (scopeName: string, serviceTitle: string) => [
-    {
-      name: "API get Grant Token",
-      method: "POST" as const,
-      url: "https://sandbox.bankhub.dev/grant/token",
-      scope: scopeName,
-      summary: `Tạo phân quyền truy cập (Grant) cho dịch vụ ${serviceTitle} để cấp quyền liên kết tài khoản ngân hàng.`,
-      headers: [
-        { name: "x-client-id", type: "String", req: true, desc: "Client ID cấp trong mục API keys" },
-        { name: "x-secret-key", type: "String", req: true, desc: "API secret key của ứng dụng (chỉ dùng ở server backend)" },
-        { name: "Content-Type", type: "String", req: true, desc: "application/json" }
-      ],
-      params: [
-        { name: "scopes", type: "String", req: true, desc: `Quyền cần cấp, truyền: "${scopeName}" (hoặc phân tách bằng dấu phẩy nếu nhiều quyền)` },
-        { name: "redirect_url", type: "String", req: false, desc: "URL chuyển hướng callback sau khi người dùng liên kết qua Cas Link" }
-      ],
-      sampleReq: `{\n  "scopes": "${scopeName}",\n  "redirect_url": "https://yourapp.com/callback"\n}`,
-      sampleRes: "{\n  \"code\": \"00\",\n  \"desc\": \"Success\",\n  \"data\": {\n    \"grantToken\": \"gt_7f8a9b0c-1d2e-3f4a-5b6c-7d8e9f0a1b2c\"\n  }\n}"
-    },
-    {
-      name: "Cas Link (Lấy publicToken)",
-      method: "GET" as const,
-      url: "https://link.bankhub.dev",
-      scope: "cas_link",
-      summary: "Chuyển hướng end-user đến Cas Link kèm grantToken để chọn ngân hàng, đăng nhập và uỷ quyền truy cập.",
-      headers: [
-        { name: "None", type: "None", req: false, desc: "Gọi trực tiếp từ Browser / WebView của end-user" }
-      ],
-      params: [
-        { name: "grantToken", type: "String", req: true, desc: "Mã token nhận được từ bước gọi POST /grant/token" },
-        { name: "redirectUri", type: "String", req: true, desc: "URL để hệ thống redirect về kèm publicToken sau khi liên kết thành công" }
-      ],
-      sampleReq: `GET https://link.bankhub.dev/?grantToken=gt_7f8a9b0c-1d2e-3f4a-5b6c-7d8e9f0a1b2c&redirectUri=https://yourapp.com/callback HTTP/1.1`,
-      sampleRes: "HTTP/1.1 302 Found\nLocation: https://yourapp.com/callback?publicToken=pt_1a2b3c4d-5e6f-7a8b-9c0d-1e2f3a4b5c6d"
-    },
-    {
-      name: "API get accessToken",
-      method: "POST" as const,
-      url: "https://sandbox.bankhub.dev/grant/exchange",
-      scope: "exchange",
-      summary: "Đổi publicToken lấy accessToken và grantId vĩnh viễn ở server để gọi các API nghiệp vụ.",
-      headers: [
-        { name: "x-client-id", type: "String", req: true, desc: "Client ID cấp trong mục API keys" },
-        { name: "x-secret-key", type: "String", req: true, desc: "API secret key của ứng dụng" },
-        { name: "Content-Type", type: "String", req: true, desc: "application/json" }
-      ],
-      params: [
-        { name: "publicToken", type: "String", req: true, desc: "Mã token tạm thời nhận được từ Callback URL của Cas Link" }
-      ],
-      sampleReq: `{\n  "publicToken": "pt_1a2b3c4d-5e6f-7a8b-9c0d-1e2f3a4b5c6d"\n}`,
-      sampleRes: "{\n  \"code\": \"00\",\n  \"desc\": \"Success\",\n  \"data\": {\n    \"accessToken\": \"at_8c9d0e1f-2a3b-4c5d-6e7f-8a9b0c1d2e3f\",\n    \"grantId\": \"grt_5k6l7m8n-9o0p-1q2r-3s4t-5u6v7w8x9y0z\"\n  }\n}"
-    }
-  ];
-
-  const actualCategory = selectedCategory === "QuickStart" ? (activeList[0] || "Transaction") : selectedCategory;
-  const currDoc = productDocs[actualCategory] || productDocs.Transaction;
-  const fullApis = currDoc ? [...commonApis(currDoc.scopeName, currDoc.title), ...currDoc.apis] : [];
-  const currentApi = fullApis[selectedApiIndex] || fullApis[0];
-
   return (
-    <div className="userguide-layout">
-      {/* Left Menu - Accordion style */}
-      <nav className="userguide-nav">
-        <div className="nav-header">
-          Dịch vụ đã kích hoạt ({activeList.length})
+    <div style={{ display: "flex", flexDirection: "column", gap: 24, paddingBottom: 40, maxWidth: 1080 }}>
+      {/* Hero Intro Banner - Sleek Minimalist Black */}
+      <section
+        style={{
+          background: "#000000",
+          color: "white",
+          borderRadius: 10,
+          padding: "28px 32px",
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          flexWrap: "wrap",
+          gap: 20,
+          border: "1px solid #27272a",
+        }}
+      >
+        <div style={{ maxWidth: 680 }}>
+          <div style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "rgba(255,255,255,0.1)", padding: "3px 10px", borderRadius: 4, fontSize: 11.5, fontWeight: 700, letterSpacing: 0.5, marginBottom: 12, color: "#e4e4e7" }}>
+            CAS OPEN BANKING PLATFORM
+          </div>
+          <h1 style={{ fontSize: 24, fontWeight: 700, margin: "0 0 8px 0", lineHeight: 1.3, color: "#ffffff" }}>
+            Tài liệu & Giới thiệu Nền tảng Cas SDK
+          </h1>
+          <p style={{ fontSize: 14, margin: 0, color: "#a1a1aa", lineHeight: 1.6 }}>
+            Cas cung cấp giải pháp kết nối Open Banking trực tiếp với hệ sinh thái ngân hàng Việt Nam (Vietcombank, Techcombank, MB, BIDV, ACB, VietinBank...). Tích hợp an toàn, đối soát tự động và vận hành 24/7.
+          </p>
         </div>
 
-        <div>
-          {activeList.map(cat => {
-            const doc = productDocs[cat];
-            if (!doc) return null;
-            const catFullApis = [...commonApis(doc.scopeName, doc.title), ...doc.apis];
-            const isActiveGroup = actualCategory === cat;
-            
-            return (
-              <div key={cat} className="userguide-nav-group">
-                <button
-                  type="button"
-                  className={`group-btn ${isActiveGroup ? "active" : ""}`}
-                  onClick={() => { setSelectedCategory(cat); setSelectedApiIndex(0); }}
-                >
-                  <span>{usageTabLabel(cat as AnalyticsTab)}</span>
-                  <span style={{ fontSize: 12, opacity: 0.6, transform: isActiveGroup ? "rotate(90deg)" : "none", transition: "transform 0.2s" }}>▶</span>
-                </button>
-                {isActiveGroup && (
-                  <div className="group-submenus">
-                    {catFullApis.map((api, idx) => (
-                      <button
-                        key={api.name}
-                        type="button"
-                        className={`submenu-btn ${selectedApiIndex === idx ? "active" : ""}`}
-                        onClick={() => setSelectedApiIndex(idx)}
-                      >
-                        <span className={`endpoint-method ${api.method.toLowerCase()}`}>{api.method}</span>
-                        <span>{api.name}</span>
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-            );
-          })}
+        <div style={{ display: "flex", flexDirection: "column", gap: 10, flexShrink: 0 }}>
+          <a
+            href="https://cas.so/intro"
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              background: "white",
+              color: "#000000",
+              padding: "9px 18px",
+              borderRadius: 6,
+              fontWeight: 700,
+              fontSize: 13,
+              textDecoration: "none",
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 6,
+              justifyContent: "center",
+            }}
+          >
+            Xem tài liệu
+          </a>
+          <a
+            href="https://cas.so/demo"
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              background: "transparent",
+              color: "white",
+              border: "1px solid #3f3f46",
+              padding: "9px 18px",
+              borderRadius: 6,
+              fontWeight: 600,
+              fontSize: 13,
+              textDecoration: "none",
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 6,
+              justifyContent: "center",
+            }}
+          >
+            Xem Demo
+          </a>
         </div>
-      </nav>
+      </section>
 
-      {/* Main Content Area */}
-      <main className="userguide-main">
-        {/* Product Overview Header */}
-        <div className="api-endpoint-card">
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
-            <h3 style={{ margin: 0, fontSize: 20, fontWeight: 700, color: "var(--ink)" }}>{currDoc.title}</h3>
-            <span className="status-pill">Active Service</span>
-          </div>
-          <p style={{ margin: "0 0 16px 0", color: "var(--muted)", fontSize: 14, lineHeight: 1.5 }}>{currDoc.desc}</p>
-          
-          <hr style={{ border: "none", borderTop: "1px dashed #e2e4ed", margin: "16px 0" }} />
-
-          {/* Selected API Document Detail */}
-          <div>
-            <h4 style={{ margin: "0 0 12px 0", fontSize: 18, color: "#1e2130" }}>{currentApi.name}</h4>
-            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8, flexWrap: "wrap" }}>
-              <span className={`endpoint-method ${currentApi.method.toLowerCase()}`}>{currentApi.method}</span>
-              <span className="endpoint-url">{currentApi.url}</span>
-              <span className="status-pill" style={{ marginLeft: "auto", fontSize: 10 }}>Scope: {currentApi.scope}</span>
-            </div>
-            <p style={{ margin: "4px 0 16px", color: "var(--muted)", fontSize: 14, lineHeight: 1.6 }}>{currentApi.summary}</p>
-
-            {/* Headers Table */}
-            {currentApi.headers && currentApi.headers.length > 0 && (
-              <div style={{ marginBottom: 16 }}>
-                <strong style={{ fontSize: 14, display: "block", marginBottom: 8, color: "#1e2130" }}>Request Headers</strong>
-                <table className="param-table">
-                  <thead>
-                    <tr>
-                      <th style={{ width: "25%" }}>Header</th>
-                      <th style={{ width: "15%" }}>Kiểu dữ liệu</th>
-                      <th style={{ width: "15%" }}>Bắt buộc</th>
-                      <th>Mô tả</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {currentApi.headers.map(h => (
-                      <tr key={h.name}>
-                        <td><code>{h.name}</code></td>
-                        <td>{h.type}</td>
-                        <td>{h.req ? <span style={{ color: "var(--red)", fontWeight: 600 }}>Có</span> : "Không"}</td>
-                        <td>{h.desc}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-
-            {/* Request Parameters Table */}
-            <strong style={{ fontSize: 14, display: "block", marginBottom: 8, color: "#1e2130" }}>
-              {currentApi.method === "GET" ? "Query Parameters" : "Request Body Parameters"}
-            </strong>
-            <table className="param-table">
-              <thead>
-                <tr>
-                  <th>Tham số</th>
-                  <th>Kiểu dữ liệu</th>
-                  <th>Bắt buộc</th>
-                  <th>Mô tả</th>
-                </tr>
-              </thead>
-              <tbody>
-                {currentApi.params.map(p => (
-                  <tr key={p.name}>
-                    <td><code>{p.name}</code></td>
-                    <td>{p.type}</td>
-                    <td>{p.req ? <span style={{ color: "var(--red)", fontWeight: 600 }}>Có</span> : "Không"}</td>
-                    <td>{p.desc}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+      {/* Developer Configuration Guides: Keys, RedirectURI, IP, Webhooks */}
+      <section style={{ background: "white", border: "1px solid var(--line)", borderRadius: 8, padding: "22px 24px" }}>
+        <div style={{ marginBottom: 18 }}>
+          <h2 style={{ fontSize: 17, fontWeight: 700, margin: "0 0 4px 0", color: "#0f172a" }}>
+            Hướng dẫn thiết lập cấu hình kết nối
+          </h2>
+          <p style={{ fontSize: 13, color: "#64748b", margin: 0 }}>
+            Tổng quan các mục cấu hình cần thiết để kết nối và vận hành ứng dụng trên nền tảng Cas.
+          </p>
         </div>
 
-        {/* Sandbox Playground Form */}
-        {currentApi.scope !== "cas_link" && currentApi.scope !== "exchange" && currentApi.name !== "API get Grant Token" && (
-          <div className="sandbox-tester-box">
-            <div className="sandbox-tester-title">
-              <div>
-                <h4>🧪 Sandbox Test Playground ({currentApi.name})</h4>
-                <small style={{ color: "var(--muted)", fontSize: 11 }}>Nhập thông số và chạy thử request API. Kết quả sẽ cập nhật ngay vào Usage và Request Logs.</small>
-              </div>
-              <FormButton
-                variant="primary"
-                size="sm"
-                onClick={() => onRunTest(actualCategory as AnalyticsTab, { bank: testBank, amount: testAmount, accountName: testAccountName, note: testNote })}
-              >
-                ⚡ Chạy Request Test (Sandbox)
-              </FormButton>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 16 }}>
+          {/* Card 1: Keys */}
+          <div style={{ border: "1px solid #e2e8f0", borderRadius: 8, padding: "18px 20px", display: "flex", flexDirection: "column", justifyContent: "space-between", background: "#ffffff" }}>
+            <div>
+              <strong style={{ fontSize: 15, color: "#0f172a", display: "block", marginBottom: 8 }}>
+                Keys
+              </strong>
+              <p style={{ fontSize: 13, color: "#475569", lineHeight: 1.5, margin: "0 0 16px 0" }}>
+                Quản lý Client ID và Secret Key dùng để xác thực ứng dụng khi gọi API và mở giao diện liên kết Cas Link.
+              </p>
             </div>
-
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginTop: 12 }}>
-              <label style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 13, fontWeight: 600, color: "#374151" }}>
-                Ngân hàng
-                <FormSelect
-                  value={testBank}
-                  onChange={e => setTestBank(e.target.value)}
-                  options={["Techcombank", "Vietcombank", "MB Bank", "ACB", "BIDV", "Sacombank", "VietinBank", "VPBank", "TPBank"]}
-                  size="sm"
-                />
-              </label>
-              <label style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 13, fontWeight: 600, color: "#374151" }}>
-                Số tiền giao dịch (VNĐ)
-                <FormInput
-                  value={testAmount}
-                  onChange={e => setTestAmount(e.target.value)}
-                  placeholder="VD: 1500000"
-                  size="sm"
-                />
-              </label>
-              <label style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 13, fontWeight: 600, color: "#374151" }}>
-                Tên tài khoản / Thụ hưởng
-                <FormInput
-                  value={testAccountName}
-                  onChange={e => setTestAccountName(e.target.value)}
-                  placeholder="VD: Nguyễn Minh Anh"
-                  size="sm"
-                />
-              </label>
-              <label style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 13, fontWeight: 600, color: "#374151" }}>
-                Nội dung chuyển khoản
-                <FormInput
-                  value={testNote}
-                  onChange={e => setTestNote(e.target.value)}
-                  placeholder="VD: Thanh toan don hang #10928"
-                  size="sm"
-                />
-              </label>
-            </div>
-          </div>
-        )}
-
-        {/* Code Snippets */}
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
-          <div className="api-endpoint-card">
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
-              <strong style={{ fontSize: 12 }}>Sample Request Body</strong>
-              <button
-                type="button"
-                className="custom-button btn-ghost btn-sm"
-                onClick={() => { navigator.clipboard?.writeText(currentApi.sampleReq); showNotice("Đã sao chép Request JSON"); }}
-              >
-                Sao chép
-              </button>
-            </div>
-            <pre style={{ margin: 0, padding: 12, background: "#171827", color: "#e2e8f0", borderRadius: 8, fontSize: 13, overflowX: "auto", fontFamily: "var(--font-jakarta), monospace" }}>
-              <code>{currentApi.sampleReq}</code>
-            </pre>
+            <button
+              onClick={() => onNavigate("Keys")}
+              style={{
+                alignSelf: "flex-start",
+                background: "transparent",
+                border: "1px solid #cbd5e1",
+                borderRadius: 4,
+                padding: "6px 12px",
+                fontSize: 12.5,
+                fontWeight: 600,
+                color: "#0f172a",
+                cursor: "pointer",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 4,
+              }}
+            >
+              Cấu hình Keys
+            </button>
           </div>
 
-          <div className="api-endpoint-card">
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
-              <strong style={{ fontSize: 12 }}>Sample 200 OK Response</strong>
-              <button
-                type="button"
-                className="custom-button btn-ghost btn-sm"
-                onClick={() => { navigator.clipboard?.writeText(currentApi.sampleRes); showNotice("Đã sao chép Response JSON"); }}
-              >
-                Sao chép
-              </button>
+          {/* Card 2: RedirectURI */}
+          <div style={{ border: "1px solid #e2e8f0", borderRadius: 8, padding: "18px 20px", display: "flex", flexDirection: "column", justifyContent: "space-between", background: "#ffffff" }}>
+            <div>
+              <strong style={{ fontSize: 15, color: "#0f172a", display: "block", marginBottom: 8 }}>
+                RedirectURI
+              </strong>
+              <p style={{ fontSize: 13, color: "#475569", lineHeight: 1.5, margin: "0 0 16px 0" }}>
+                Cấu hình danh sách URL callback hoặc Mobile Deeplink để chuyển hướng người dùng quay về sau khi hoàn thành cấp quyền.
+              </p>
             </div>
-            <pre style={{ margin: 0, padding: 12, background: "#171827", color: "#38bdf8", borderRadius: 8, fontSize: 13, overflowX: "auto", fontFamily: "var(--font-jakarta), monospace" }}>
-              <code>{currentApi.sampleRes}</code>
-            </pre>
+            <button
+              onClick={() => onNavigate("RedirectURI/IP")}
+              style={{
+                alignSelf: "flex-start",
+                background: "transparent",
+                border: "1px solid #cbd5e1",
+                borderRadius: 4,
+                padding: "6px 12px",
+                fontSize: 12.5,
+                fontWeight: 600,
+                color: "#0f172a",
+                cursor: "pointer",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 4,
+              }}
+            >
+              Cấu hình RedirectURI
+            </button>
+          </div>
+
+          {/* Card 3: Cấu hình IP */}
+          <div style={{ border: "1px solid #e2e8f0", borderRadius: 8, padding: "18px 20px", display: "flex", flexDirection: "column", justifyContent: "space-between", background: "#ffffff" }}>
+            <div>
+              <strong style={{ fontSize: 15, color: "#0f172a", display: "block", marginBottom: 8 }}>
+                Cấu hình IP
+              </strong>
+              <p style={{ fontSize: 13, color: "#475569", lineHeight: 1.5, margin: "0 0 16px 0" }}>
+                Danh sách các địa chỉ IP tĩnh hoặc dải IP của máy chủ được cấp phép truy cập API chuyển tiền.
+              </p>
+            </div>
+            <button
+              onClick={() => onNavigate("RedirectURI/IP")}
+              style={{
+                alignSelf: "flex-start",
+                background: "transparent",
+                border: "1px solid #cbd5e1",
+                borderRadius: 4,
+                padding: "6px 12px",
+                fontSize: 12.5,
+                fontWeight: 600,
+                color: "#0f172a",
+                cursor: "pointer",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 4,
+              }}
+            >
+              Cấu hình IP
+            </button>
+          </div>
+
+          {/* Card 4: Webhooks */}
+          <div style={{ border: "1px solid #e2e8f0", borderRadius: 8, padding: "18px 20px", display: "flex", flexDirection: "column", justifyContent: "space-between", background: "#ffffff" }}>
+            <div>
+              <strong style={{ fontSize: 15, color: "#0f172a", display: "block", marginBottom: 8 }}>
+                Webhooks
+              </strong>
+              <p style={{ fontSize: 13, color: "#475569", lineHeight: 1.5, margin: "0 0 16px 0" }}>
+                Thiết lập các URL endpoint nhận thông báo tự động theo thời gian thực khi có biến động báo có giao dịch, ký số, ...
+              </p>
+            </div>
+            <button
+              onClick={() => onNavigate("Webhooks")}
+              style={{
+                alignSelf: "flex-start",
+                background: "transparent",
+                border: "1px solid #cbd5e1",
+                borderRadius: 4,
+                padding: "6px 12px",
+                fontSize: 12.5,
+                fontWeight: 600,
+                color: "#0f172a",
+                cursor: "pointer",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 4,
+              }}
+            >
+              Cấu hình Webhooks
+            </button>
           </div>
         </div>
-      </main>
+      </section>
     </div>
   );
 }
 
-function DeveloperSettings({ page, showNotice }: { page: "API keys" | "Direct URL" | "Webhooks"; showNotice: (message: string) => void }) {
+function AppSettingsScreen({
+  selectedApp,
+  setSelectedApp,
+  showNotice,
+}: {
+  selectedApp: AppData;
+  setSelectedApp: React.Dispatch<React.SetStateAction<AppData>>;
+  showNotice: (msg: string) => void;
+}) {
+  const [appName, setAppName] = useState(selectedApp.name);
+  const [appDesc, setAppDesc] = useState("Test");
+  const [appWebsite, setAppWebsite] = useState("https://casso.vn");
+  const [logoPreview, setLogoPreview] = useState<string | null>(null);
+
+  function handleSave() {
+    setSelectedApp(prev => ({ ...prev, name: appName }));
+    showNotice("✓ Đã lưu thông tin ứng dụng thành công!");
+  }
+
+  return (
+    <section style={{ maxWidth: 640, margin: "0 auto", padding: "10px 0 40px" }}>
+      <h1 style={{ fontSize: 28, fontWeight: 700, margin: "0 0 12px 0", color: "#0f172a" }}>
+        Chi tiết ứng dụng
+      </h1>
+      <p style={{ fontSize: 14.5, color: "#475569", lineHeight: 1.5, margin: "0 0 28px 0" }}>
+        Một ứng dụng mới sẽ có một cặp client, secret key để các team có thể ứng dụng tích hợp các tính năng
+      </p>
+
+      <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+        {/* Field: Tên ứng dụng */}
+        <fieldset
+          style={{
+            border: "1px solid #cbd5e1",
+            borderRadius: 6,
+            padding: "0 14px 10px 14px",
+            margin: 0,
+          }}
+        >
+          <legend style={{ padding: "0 6px", fontSize: 12.5, color: "#475569", fontWeight: 500 }}>
+            Tên ứng dụng *
+          </legend>
+          <input
+            type="text"
+            value={appName}
+            onChange={e => setAppName(e.target.value)}
+            style={{
+              width: "100%",
+              border: "none",
+              outline: "none",
+              fontSize: 16,
+              fontWeight: 500,
+              color: "#0f172a",
+              background: "transparent",
+              padding: "4px 0 0 0",
+              boxSizing: "border-box",
+            }}
+          />
+        </fieldset>
+
+        {/* Field: Mô tả */}
+        <fieldset
+          style={{
+            border: "1px solid #cbd5e1",
+            borderRadius: 6,
+            padding: "0 14px 10px 14px",
+            margin: 0,
+          }}
+        >
+          <legend style={{ padding: "0 6px", fontSize: 12.5, color: "#475569", fontWeight: 500 }}>
+            Mô tả *
+          </legend>
+          <input
+            type="text"
+            value={appDesc}
+            onChange={e => setAppDesc(e.target.value)}
+            style={{
+              width: "100%",
+              border: "none",
+              outline: "none",
+              fontSize: 16,
+              fontWeight: 500,
+              color: "#0f172a",
+              background: "transparent",
+              padding: "4px 0 0 0",
+              boxSizing: "border-box",
+            }}
+          />
+        </fieldset>
+
+        {/* Field: Trang web liên quan */}
+        <fieldset
+          style={{
+            border: "1px solid #cbd5e1",
+            borderRadius: 6,
+            padding: "0 14px 10px 14px",
+            margin: 0,
+          }}
+        >
+          <legend style={{ padding: "0 6px", fontSize: 12.5, color: "#475569", fontWeight: 500 }}>
+            Trang web liên quan *
+          </legend>
+          <input
+            type="text"
+            value={appWebsite}
+            onChange={e => setAppWebsite(e.target.value)}
+            style={{
+              width: "100%",
+              border: "none",
+              outline: "none",
+              fontSize: 16,
+              fontWeight: 500,
+              color: "#0f172a",
+              background: "transparent",
+              padding: "4px 0 0 0",
+              boxSizing: "border-box",
+            }}
+          />
+        </fieldset>
+
+        {/* Field: Logo */}
+        <div>
+          <fieldset
+            style={{
+              border: "1px solid #cbd5e1",
+              borderRadius: 6,
+              padding: "14px",
+              margin: 0,
+            }}
+          >
+            <legend style={{ padding: "0 6px", fontSize: 12.5, color: "#475569", fontWeight: 500 }}>
+              Logo
+            </legend>
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 14 }}>
+              <label
+                style={{
+                  width: "100%",
+                  border: "1px solid #0f172a",
+                  borderRadius: 4,
+                  padding: "8px 0",
+                  textAlign: "center",
+                  background: "white",
+                  color: "#0f172a",
+                  fontWeight: 600,
+                  fontSize: 14,
+                  cursor: "pointer",
+                  display: "block",
+                }}
+              >
+                Cập nhật
+                <input
+                  type="file"
+                  accept="image/png, image/jpeg, image/jpg"
+                  style={{ display: "none" }}
+                  onChange={e => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      const reader = new FileReader();
+                      reader.onload = ev => setLogoPreview(ev.target?.result as string);
+                      reader.readAsDataURL(file);
+                      showNotice(`Đã chọn ảnh logo: ${file.name}`);
+                    }
+                  }}
+                />
+              </label>
+
+              <div
+                style={{
+                  width: "100%",
+                  minHeight: 180,
+                  maxHeight: 280,
+                  background: "#fafafa",
+                  borderRadius: 4,
+                  border: "1px dashed #e2e8f0",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  overflow: "hidden",
+                  padding: 10,
+                }}
+              >
+                {logoPreview ? (
+                  <img src={logoPreview} alt="App Logo Preview" style={{ maxWidth: "100%", maxHeight: 240, objectFit: "contain" }} />
+                ) : (
+                  <div style={{ textAlign: "center", color: "#64748b", fontSize: 13 }}>
+                    <div style={{ fontSize: 32, marginBottom: 4 }}>🖼</div>
+                    <span>Chưa có ảnh logo tải lên</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          </fieldset>
+          <div style={{ fontSize: 12, color: "#64748b", marginTop: 8, paddingLeft: 4 }}>
+            Hình ảnh phải có kích thước nhỏ hơn 1MB và file .jpg, jpeg, png
+          </div>
+        </div>
+
+        {/* Save button */}
+        <button
+          onClick={handleSave}
+          style={{
+            marginTop: 10,
+            background: "#646b79",
+            color: "white",
+            border: "none",
+            borderRadius: 6,
+            padding: "12px 20px",
+            fontSize: 15,
+            fontWeight: 600,
+            cursor: "pointer",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            transition: "background 0.2s",
+            width: "100%",
+          }}
+          onMouseEnter={e => (e.currentTarget.style.background = "#4b5563")}
+          onMouseLeave={e => (e.currentTarget.style.background = "#646b79")}
+        >
+          <span>Lưu thay đổi</span>
+        </button>
+      </div>
+    </section>
+  );
+}
+
+function CopyIcon({ size = 18 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+      <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+    </svg>
+  );
+}
+
+function EyeIcon({ size = 18 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+      <circle cx="12" cy="12" r="3"></circle>
+    </svg>
+  );
+}
+
+function EyeOffIcon({ size = 18 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
+      <line x1="1" y1="1" x2="23" y2="23"></line>
+    </svg>
+  );
+}
+
+function RotateIcon({ size = 18 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="23 4 23 10 17 10"></polyline>
+      <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
+    </svg>
+  );
+}
+
+function WarningTriangleIcon({ size = 20 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="#ea580c" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+      <line x1="12" y1="9" x2="12" y2="13"></line>
+      <line x1="12" y1="17" x2="12.01" y2="17"></line>
+    </svg>
+  );
+}
+
+function EditIcon({ size = 18 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+      <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+    </svg>
+  );
+}
+
+function TrashIcon({ size = 18 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="3 6 5 6 21 6"></polyline>
+      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+    </svg>
+  );
+}
+
+function PlayIcon({ size = 18 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+      <polygon points="5 3 19 12 5 21 5 3"></polygon>
+    </svg>
+  );
+}
+
+function ApiKeysScreen({ showNotice }: { showNotice: (message: string) => void }) {
   const [showSecret, setShowSecret] = useState(false);
-  const [redirects, setRedirects] = useState(["https://app.bankhub.vn/cas/callback", "https://staging.bankhub.vn/cas/callback"]);
-  const [webhooks, setWebhooks] = useState([
-    { name: "Grant events", url: "https://api.bankhub.vn/cas/webhook", actions: ["GRANT"], status: "Active" },
-    { name: "Transaction events", url: "https://api.bankhub.vn/cas/transactions", actions: ["TRANSACTION"], status: "Active" },
+  const [clientId] = useState("33d42bee-13b4-4f33-b528-51e958e065ae");
+  const [secretKey, setSecretKey] = useState("sk_live_991823abce_vietfin_sec88_cas_d912");
+
+  function handleRotateSecret() {
+    const newSecret = `sk_live_${Math.random().toString(36).substring(2, 12)}_${Math.random().toString(36).substring(2, 10)}`;
+    setSecretKey(newSecret);
+    showNotice("✓ Đã xoay vòng Secret Key mới thành công!");
+  }
+
+  return (
+    <div style={{ maxWidth: 1080, padding: "10px 0 40px" }}>
+      {/* Header */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 32 }}>
+        <h1 style={{ fontSize: 24, fontWeight: 700, margin: 0, color: "#000" }}>Keys</h1>
+      </div>
+
+      {/* Client ID Row */}
+      <div style={{ display: "flex", alignItems: "center", marginBottom: 28 }}>
+        <div style={{ width: 140, fontSize: 14, fontWeight: 500, color: "#000", flexShrink: 0 }}>Client Id</div>
+        <div
+          style={{
+            flex: 1,
+            display: "flex",
+            alignItems: "center",
+            border: "1px solid #d1d5db",
+            borderRadius: 4,
+            padding: "8px 14px",
+            background: "#fff",
+          }}
+        >
+          <span style={{ flex: 1, fontFamily: "monospace", fontSize: 14, color: "#111827" }}>{clientId}</span>
+          <button
+            type="button"
+            onClick={() => {
+              navigator.clipboard?.writeText(clientId);
+              showNotice("✓ Đã sao chép Client ID vào clipboard");
+            }}
+            title="Sao chép Client ID"
+            style={{
+              background: "transparent",
+              border: "none",
+              cursor: "pointer",
+              color: "#6b7280",
+              display: "flex",
+              alignItems: "center",
+              padding: "4px",
+            }}
+          >
+            <CopyIcon size={18} />
+          </button>
+        </div>
+      </div>
+
+      {/* Secrets Section */}
+      <div style={{ marginBottom: 12 }}>
+        {/* Warning Banner */}
+        <div
+          style={{
+            marginLeft: 140,
+            border: "1px solid #f97316",
+            borderRadius: 4,
+            padding: "12px 16px",
+            background: "#fff",
+            display: "flex",
+            alignItems: "flex-start",
+            gap: 12,
+            marginBottom: 24,
+          }}
+        >
+          <div style={{ flexShrink: 0, marginTop: 1 }}>
+            <WarningTriangleIcon size={18} />
+          </div>
+          <div style={{ fontSize: 13.5, color: "#9a3412", lineHeight: 1.5 }}>
+            Đừng bao giờ chia sẻ secret key với bất kỳ ai, kể cả chúng tôi. Nếu một key bị lộ, hãy xoay vòng key đó ngay lập tức.
+          </div>
+        </div>
+
+        {/* Secret Key Row */}
+        <div style={{ display: "flex", alignItems: "center" }}>
+          <div style={{ width: 140, fontSize: 14, fontWeight: 500, color: "#000", flexShrink: 0 }}>Secret key</div>
+          <div
+            style={{
+              flex: 1,
+              display: "flex",
+              alignItems: "center",
+              border: "1px solid #d1d5db",
+              borderRadius: 4,
+              padding: "8px 14px",
+              background: "#fff",
+            }}
+          >
+            <span
+              style={{
+                flex: 1,
+                fontFamily: "monospace",
+                fontSize: 14,
+                color: "#111827",
+                letterSpacing: showSecret ? "normal" : "2px",
+              }}
+            >
+              {showSecret ? secretKey : "................................"}
+            </span>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <button
+                type="button"
+                onClick={() => {
+                  navigator.clipboard?.writeText(secretKey);
+                  showNotice("✓ Đã sao chép Secret Key vào clipboard");
+                }}
+                title="Sao chép Secret Key"
+                style={{ background: "transparent", border: "none", cursor: "pointer", color: "#6b7280", display: "flex", alignItems: "center", padding: "4px" }}
+              >
+                <CopyIcon size={18} />
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowSecret(!showSecret)}
+                title={showSecret ? "Ẩn Secret Key" : "Hiện Secret Key"}
+                style={{ background: "transparent", border: "none", cursor: "pointer", color: "#6b7280", display: "flex", alignItems: "center", padding: "4px" }}
+              >
+                {showSecret ? <EyeOffIcon size={18} /> : <EyeIcon size={18} />}
+              </button>
+              <button
+                type="button"
+                onClick={handleRotateSecret}
+                title="Xoay vòng (tạo mới) Secret Key"
+                style={{ background: "transparent", border: "none", cursor: "pointer", color: "#6b7280", display: "flex", alignItems: "center", padding: "4px" }}
+              >
+                <RotateIcon size={18} />
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ApiSettingsScreen({ showNotice }: { showNotice: (message: string) => void }) {
+  // Redirect URLs state
+  const [urls, setUrls] = useState<string[]>([
+    "https://bankhub.vn/cas/callback",
+    "vietfin://cas/auth/callback",
+    "https://staging.bankhub.vn/auth/callback",
   ]);
-  const [webhookModal, setWebhookModal] = useState(false);
-  const [webhookDraft, setWebhookDraft] = useState({ name: "", description: "", url: "https://", actions: ["GRANT"], status: "Active" });
+  const [newUrl, setNewUrl] = useState("");
+  const [editingUrlIdx, setEditingUrlIdx] = useState<number | null>(null);
+  const [editingUrlValue, setEditingUrlValue] = useState("");
 
-  function copyValue(value: string, label: string) {
-    navigator.clipboard?.writeText(value);
-    showNotice(`Đã sao chép ${label}`);
-  }
+  // IP Whitelist state
+  const [ips, setIps] = useState<string[]>([
+    "118.69.182.45",
+    "14.162.144.89",
+    "203.162.0.1/24",
+  ]);
+  const [newIp, setNewIp] = useState("");
+  const [editingIpIdx, setEditingIpIdx] = useState<number | null>(null);
+  const [editingIpValue, setEditingIpValue] = useState("");
 
-  if (page === "API keys") {
-    const clientId = "33d42bee-13b4-4f33-b528-51e958e065ae";
-    const secret = "cas_live_sk_8F2KD91M_n7Qp4Xv2Rc9L";
-    return <section className="developer-form">
-      <div className="form-section">
-        <div className="form-label"><h2>Client API</h2><p>Dùng Client ID để định danh App trong quá trình kết nối.</p></div>
-        <CredentialBox
-          value={clientId}
-          label="Client ID"
-          onCopy={() => copyValue(clientId, "Client ID")}
-        />
-      </div>
-      <div className="form-section secret-section">
-        <div className="form-label"><h2>API secret key</h2><p>Chỉ sử dụng secret ở phía server. Không đưa key vào mobile app hoặc frontend.</p></div>
-        <div className="warning-box"><span>△</span><p>Không chia sẻ secret key. Nếu key bị lộ, hãy rotate ngay để vô hiệu hoá key cũ.</p></div>
-        <CredentialBox
-          value={secret}
-          label="Secret key"
-          showToggle
-          isShowing={showSecret}
-          onToggle={() => setShowSecret(!showSecret)}
-          onCopy={() => copyValue(secret, "Secret key")}
-          onRotate={() => showNotice("Secret key mới đã được tạo")}
-          note="Tạo lúc 12/07/2026 · Sử dụng gần nhất 4 phút trước"
-        />
-      </div>
-    </section>;
-  }
-
-  if (page === "Direct URL") {
-    return <section className="developer-form">
-      <div className="settings-intro"><h2>URL trả về sau khi cấp quyền</h2><p>CAS chỉ chuyển hướng end-user về các URL đã được khai báo tại đây. URL phải dùng HTTPS, ngoại trừ localhost khi phát triển.</p></div>
-      <div className="url-list">{redirects.map((url, index) => <div className="url-row" key={`${url}-${index}`}><span>{index + 1}</span><input value={url} onChange={e => setRedirects(redirects.map((item, i) => i === index ? e.target.value : item))} /><button onClick={() => setRedirects(redirects.filter((_, i) => i !== index))}>Xoá</button></div>)}</div>
-      <button className="outline-action" onClick={() => setRedirects([...redirects, "https://"])}>＋ Thêm URL mới</button>
-      <div className="form-actions"><button onClick={() => setRedirects(["https://app.bankhub.vn/cas/callback", "https://staging.bankhub.vn/cas/callback"])}>Đặt lại</button><button className="save-button" onClick={() => showNotice(`Đã lưu ${redirects.length} callback URL`)}>Lưu thay đổi</button></div>
-    </section>;
-  }
-
-  const webhookTypes = ["GRANT", "TRANSACTION", "QRPAY", "VIRTUAL_ACCOUNT", "INVOICE"];
-
-  function addWebhook() {
-    if (!webhookDraft.name.trim() || webhookDraft.url === "https://") {
-      showNotice("Vui lòng nhập tên và endpoint URL");
+  // Redirect URI Handlers
+  function handleAddUrl() {
+    if (!newUrl.trim()) return;
+    if (urls.includes(newUrl.trim())) {
+      showNotice("URI này đã tồn tại trong danh sách.");
       return;
     }
-    setWebhooks([...webhooks, { name: webhookDraft.name, url: webhookDraft.url, actions: webhookDraft.actions, status: webhookDraft.status }]);
-    setWebhookDraft({ name: "", description: "", url: "https://", actions: ["GRANT"], status: "Active" });
-    setWebhookModal(false);
-    showNotice("Đã thêm webhook");
+    setUrls([...urls, newUrl.trim()]);
+    setNewUrl("");
+    showNotice("✓ Đã thêm Redirect URI mới");
   }
 
-  return <section className="developer-form webhook-page">
-    <div className="settings-intro webhook-intro"><div><h2>Webhook endpoints</h2><p>CAS gửi HTTP POST khi action phát sinh. QRPay và VirtualAccount cần webhook để cập nhật trạng thái bất đồng bộ.</p></div><button className="primary-button webhook-cta" onClick={() => setWebhookModal(true)}>＋ Thêm webhook</button></div>
-    <div className="webhook-table-list">
-      <div className="webhook-table-head"><span>Webhook</span><span>Endpoint</span><span>Actions</span><span>Trạng thái</span><span /></div>
-      {webhooks.map((hook, index) => <div className="webhook-table-row" key={`${hook.name}-${index}`}>
-        <div><strong>{hook.name}</strong><small>Cập nhật 2 phút trước</small></div>
-        <code>{hook.url}</code>
-        <div className="row-events"><span>{hook.actions[0]}</span></div>
-        <div className="switch-cell"><button className={`webhook-switch ${hook.status === "Active" ? "active" : ""}`} aria-pressed={hook.status === "Active"} aria-label={`${hook.name}: ${hook.status}`} onClick={() => setWebhooks(webhooks.map((item, i) => i === index ? { ...item, status: item.status === "Active" ? "Inactive" : "Active" } : item))}><i /></button><span>{hook.status}</span></div>
-        <div className="row-actions"><button onClick={() => showNotice(`Đã gửi test event tới ${hook.name}`)}>Test</button><button onClick={() => setWebhooks(webhooks.filter((_, i) => i !== index))}>Xoá</button></div>
-      </div>)}
-    </div>
-    {webhooks.length === 0 && <div className="webhook-empty">Chưa có webhook endpoint. Bấm “Thêm webhook” để bắt đầu.</div>}
+  function handleStartEditUrl(idx: number) {
+    setEditingUrlIdx(idx);
+    setEditingUrlValue(urls[idx]);
+  }
 
-    {webhookModal && <div className="modal-backdrop" role="presentation" onMouseDown={() => setWebhookModal(false)}>
-      <div className="webhook-modal" role="dialog" aria-modal="true" aria-labelledby="webhook-modal-title" onMouseDown={e => e.stopPropagation()}>
-        <div className="modal-heading"><div><h2 id="webhook-modal-title">Thêm webhook</h2><p>Nhập endpoint và chọn các action muốn nhận.</p></div><button onClick={() => setWebhookModal(false)}>×</button></div>
-        <div className="modal-body">
-          <label><span>Tên webhook *</span><input autoFocus value={webhookDraft.name} onChange={e => setWebhookDraft({ ...webhookDraft, name: e.target.value })} placeholder="Ví dụ: Production events" /></label>
-          <label><span>Mô tả</span><textarea value={webhookDraft.description} onChange={e => setWebhookDraft({ ...webhookDraft, description: e.target.value })} placeholder="Webhook xử lý sự kiện production" /></label>
-          <label><span>Endpoint URL *</span><input value={webhookDraft.url} onChange={e => setWebhookDraft({ ...webhookDraft, url: e.target.value })} placeholder="https://api.example.com/webhooks/cas" /></label>
-          <label><span>Webhook type *</span><select value={webhookDraft.actions[0]} onChange={e => setWebhookDraft({ ...webhookDraft, actions: [e.target.value] })}>{webhookTypes.map(type => <option key={type}>{type}</option>)}</select><small>Mỗi webhook endpoint chỉ nhận một type.</small></label>
-          <label className="status-select"><span>Trạng thái</span><select value={webhookDraft.status} onChange={e => setWebhookDraft({ ...webhookDraft, status: e.target.value })}><option>Active</option><option>Inactive</option></select></label>
-        </div>
-        <div className="modal-actions"><button onClick={() => setWebhookModal(false)}>Huỷ</button><button className="save-button" onClick={addWebhook}>Thêm webhook</button></div>
+  function handleSaveEditUrl(idx: number) {
+    if (!editingUrlValue.trim()) return;
+    const updated = [...urls];
+    updated[idx] = editingUrlValue.trim();
+    setUrls(updated);
+    setEditingUrlIdx(null);
+    setEditingUrlValue("");
+    showNotice("✓ Đã cập nhật Redirect URI");
+  }
+
+  function handleDeleteUrl(idx: number) {
+    setUrls(urls.filter((_, i) => i !== idx));
+    showNotice("✓ Đã xoá Redirect URI");
+  }
+
+  // IP Whitelist Handlers
+  function handleAddIp() {
+    if (!newIp.trim()) return;
+    if (ips.includes(newIp.trim())) {
+      showNotice("Địa chỉ IP này đã tồn tại trong whitelist.");
+      return;
+    }
+    setIps([...ips, newIp.trim()]);
+    setNewIp("");
+    showNotice("✓ Đã thêm IP vào Whitelist");
+  }
+
+  function handleStartEditIp(idx: number) {
+    setEditingIpIdx(idx);
+    setEditingIpValue(ips[idx]);
+  }
+
+  function handleSaveEditIp(idx: number) {
+    if (!editingIpValue.trim()) return;
+    const updated = [...ips];
+    updated[idx] = editingIpValue.trim();
+    setIps(updated);
+    setEditingIpIdx(null);
+    setEditingIpValue("");
+    showNotice("✓ Đã cập nhật địa chỉ IP");
+  }
+
+  function handleDeleteIp(idx: number) {
+    setIps(ips.filter((_, i) => i !== idx));
+    showNotice("✓ Đã xoá IP khỏi Whitelist");
+  }
+
+  return (
+    <div style={{ maxWidth: 1080, padding: "10px 0 40px", display: "flex", flexDirection: "column", gap: 24 }}>
+      {/* Page Title */}
+      <div>
+        <h1 style={{ fontSize: 24, fontWeight: 700, margin: 0, color: "#000" }}>RedirectURI/IP</h1>
       </div>
-    </div>}
-  </section>;
+
+      {/* SECTION 1: Redirect URIs */}
+      <section style={{ background: "white", border: "1px solid var(--line)", borderRadius: 8, padding: "20px 22px" }}>
+        <div style={{ marginBottom: 16 }}>
+          <h2 style={{ fontSize: 16, fontWeight: 700, margin: "0 0 4px 0", color: "#000" }}>
+            URI điều hướng được cho phép
+          </h2>
+          <p style={{ fontSize: 13, color: "#6b7280", margin: 0 }}>
+            URI điều hướng trả lại quyền kiểm soát cho ứng dụng của bạn sau khi người dùng liên kết tài khoản.
+          </p>
+        </div>
+
+        {/* List of Redirect URIs */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 16 }}>
+          {urls.map((url, idx) => (
+            <div
+              key={idx}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                padding: "10px 14px",
+                background: "#f9fafb",
+                border: "1px solid #e5e7eb",
+                borderRadius: 6,
+                gap: 12,
+              }}
+            >
+              {editingUrlIdx === idx ? (
+                <div style={{ display: "flex", flex: 1, gap: 8, alignItems: "center" }}>
+                  <input
+                    type="text"
+                    value={editingUrlValue}
+                    onChange={e => setEditingUrlValue(e.target.value)}
+                    onKeyDown={e => {
+                      if (e.key === "Enter") handleSaveEditUrl(idx);
+                      if (e.key === "Escape") setEditingUrlIdx(null);
+                    }}
+                    autoFocus
+                    style={{
+                      flex: 1,
+                      padding: "6px 10px",
+                      border: "1px solid #000",
+                      borderRadius: 4,
+                      fontSize: 13.5,
+                      fontFamily: "monospace",
+                      background: "#fff",
+                    }}
+                  />
+                  <button
+                    onClick={() => handleSaveEditUrl(idx)}
+                    style={{ background: "#000", color: "#fff", border: "none", borderRadius: 4, padding: "6px 12px", fontSize: 12.5, fontWeight: 600, cursor: "pointer" }}
+                  >
+                    Lưu
+                  </button>
+                  <button
+                    onClick={() => setEditingUrlIdx(null)}
+                    style={{ background: "#f3f4f6", color: "#4b5563", border: "none", borderRadius: 4, padding: "6px 12px", fontSize: 12.5, cursor: "pointer" }}
+                  >
+                    Hủy
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <code style={{ fontSize: 13.5, color: "#111827", fontFamily: "monospace", wordBreak: "break-all" }}>
+                    {url}
+                  </code>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        navigator.clipboard?.writeText(url);
+                        showNotice("✓ Đã sao chép Redirect URI");
+                      }}
+                      title="Sao chép"
+                      style={{ background: "transparent", border: "none", cursor: "pointer", color: "#6b7280", padding: "4px", display: "flex", alignItems: "center" }}
+                    >
+                      <CopyIcon size={18} />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleStartEditUrl(idx)}
+                      title="Chỉnh sửa"
+                      style={{ background: "transparent", border: "none", cursor: "pointer", color: "#6b7280", padding: "4px", display: "flex", alignItems: "center" }}
+                    >
+                      <EditIcon size={18} />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteUrl(idx)}
+                      title="Xóa"
+                      style={{ background: "transparent", border: "none", cursor: "pointer", color: "#6b7280", padding: "4px", display: "flex", alignItems: "center" }}
+                      onMouseEnter={e => (e.currentTarget.style.color = "#ef4444")}
+                      onMouseLeave={e => (e.currentTarget.style.color = "#6b7280")}
+                    >
+                      <TrashIcon size={18} />
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          ))}
+          {urls.length === 0 && (
+            <div style={{ textAlign: "center", padding: "16px", color: "#9ca3af", fontSize: 13, background: "#f9fafb", borderRadius: 6, border: "1px dashed #d1d5db" }}>
+              Chưa có URI điều hướng nào được cấu hình.
+            </div>
+          )}
+        </div>
+
+        {/* Add new Redirect URI Input Row */}
+        <div style={{ display: "flex", gap: 8 }}>
+          <input
+            type="text"
+            placeholder="https://yourdomain.com/callback hoặc myapp://cas/callback..."
+            value={newUrl}
+            onChange={e => setNewUrl(e.target.value)}
+            onKeyDown={e => { if (e.key === "Enter") handleAddUrl(); }}
+            style={{ flex: 1, padding: "8px 12px", border: "1px solid #d1d5db", borderRadius: 6, fontSize: 13.5, background: "#fff", color: "#111827" }}
+          />
+          <button
+            onClick={handleAddUrl}
+            style={{ background: "#000", color: "#fff", border: "none", borderRadius: 6, padding: "8px 18px", fontSize: 13, fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap" }}
+          >
+            Thêm URI
+          </button>
+        </div>
+      </section>
+
+      {/* SECTION 2: IP Whitelist */}
+      <section style={{ background: "white", border: "1px solid var(--line)", borderRadius: 8, padding: "20px 22px" }}>
+        <div style={{ marginBottom: 16 }}>
+          <h2 style={{ fontSize: 16, fontWeight: 700, margin: "0 0 4px 0", color: "#000" }}>
+            Cấu hình IP
+          </h2>
+          <p style={{ fontSize: 13, color: "#6b7280", margin: 0 }}>
+            Chỉ các địa chỉ IP hoặc dải CIDR nằm trong danh sách whitelist này mới được phép sử dụng API chuyển tiền.
+          </p>
+        </div>
+
+        {/* List of IPs */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 16 }}>
+          {ips.map((ip, idx) => (
+            <div
+              key={idx}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                padding: "10px 14px",
+                background: "#f9fafb",
+                border: "1px solid #e5e7eb",
+                borderRadius: 6,
+                gap: 12,
+              }}
+            >
+              {editingIpIdx === idx ? (
+                <div style={{ display: "flex", flex: 1, gap: 8, alignItems: "center" }}>
+                  <input
+                    type="text"
+                    value={editingIpValue}
+                    onChange={e => setEditingIpValue(e.target.value)}
+                    onKeyDown={e => {
+                      if (e.key === "Enter") handleSaveEditIp(idx);
+                      if (e.key === "Escape") setEditingIpIdx(null);
+                    }}
+                    autoFocus
+                    style={{
+                      flex: 1,
+                      padding: "6px 10px",
+                      border: "1px solid #000",
+                      borderRadius: 4,
+                      fontSize: 13.5,
+                      fontFamily: "monospace",
+                      background: "#fff",
+                    }}
+                  />
+                  <button
+                    onClick={() => handleSaveEditIp(idx)}
+                    style={{ background: "#000", color: "#fff", border: "none", borderRadius: 4, padding: "6px 12px", fontSize: 12.5, fontWeight: 600, cursor: "pointer" }}
+                  >
+                    Lưu
+                  </button>
+                  <button
+                    onClick={() => setEditingIpIdx(null)}
+                    style={{ background: "#f3f4f6", color: "#4b5563", border: "none", borderRadius: 4, padding: "6px 12px", fontSize: 12.5, cursor: "pointer" }}
+                  >
+                    Hủy
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <code style={{ fontSize: 13.5, color: "#111827", fontFamily: "monospace", fontWeight: 600 }}>
+                    {ip}
+                  </code>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        navigator.clipboard?.writeText(ip);
+                        showNotice("✓ Đã sao chép địa chỉ IP");
+                      }}
+                      title="Sao chép"
+                      style={{ background: "transparent", border: "none", cursor: "pointer", color: "#6b7280", padding: "4px", display: "flex", alignItems: "center" }}
+                    >
+                      <CopyIcon size={18} />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleStartEditIp(idx)}
+                      title="Chỉnh sửa"
+                      style={{ background: "transparent", border: "none", cursor: "pointer", color: "#6b7280", padding: "4px", display: "flex", alignItems: "center" }}
+                    >
+                      <EditIcon size={18} />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteIp(idx)}
+                      title="Xóa"
+                      style={{ background: "transparent", border: "none", cursor: "pointer", color: "#6b7280", padding: "4px", display: "flex", alignItems: "center" }}
+                      onMouseEnter={e => (e.currentTarget.style.color = "#ef4444")}
+                      onMouseLeave={e => (e.currentTarget.style.color = "#6b7280")}
+                    >
+                      <TrashIcon size={18} />
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          ))}
+          {ips.length === 0 && (
+            <div style={{ textAlign: "center", padding: "16px", color: "#9ca3af", fontSize: 13, background: "#f9fafb", borderRadius: 6, border: "1px dashed #d1d5db" }}>
+              Chưa có IP nào trong Whitelist.
+            </div>
+          )}
+        </div>
+
+        {/* Add new IP Input Row */}
+        <div style={{ display: "flex", gap: 8 }}>
+          <input
+            type="text"
+            placeholder="Ví dụ: 118.69.182.45 hoặc 10.0.0.0/24..."
+            value={newIp}
+            onChange={e => setNewIp(e.target.value)}
+            onKeyDown={e => { if (e.key === "Enter") handleAddIp(); }}
+            style={{ flex: 1, padding: "8px 12px", border: "1px solid #d1d5db", borderRadius: 6, fontSize: 13.5, background: "#fff", color: "#111827" }}
+          />
+          <button
+            onClick={handleAddIp}
+            style={{ background: "#000", color: "#fff", border: "none", borderRadius: 6, padding: "8px 18px", fontSize: 13, fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap" }}
+          >
+            Thêm IP
+          </button>
+        </div>
+      </section>
+    </div>
+  );
+}
+
+type WebhookItem = {
+  id: string;
+  name: string;
+  description?: string;
+  url: string;
+  category: "GRANT" | "TRANSACTIONS" | "INVOICE" | "AUTO_DEBIT" | "TVAN" | "SIGN";
+  status: "ACTIVE" | "PAUSED";
+};
+
+function WebhooksScreen({ showNotice }: { showNotice: (message: string) => void }) {
+  const [webhooks, setWebhooks] = useState<WebhookItem[]>([
+    {
+      id: "wh_1",
+      name: "Báo có",
+      description: "Nhận biến động giao dịch tức thì",
+      url: "https://webhook.site/8897849f-5f17-4ad0-bb32-0df45b66230e",
+      category: "TRANSACTIONS",
+      status: "ACTIVE",
+    },
+    {
+      id: "wh_2",
+      name: "Sign",
+      description: "Nhận kết quả ký số eSign",
+      url: "https://cas-sign.canhpham0809.workers.dev/api/esign/webhook?token=82f6e4f0437b7f5b406356a8f148e16dd9c7c8853173f313d12763e47da9122a",
+      category: "SIGN",
+      status: "ACTIVE",
+    },
+  ]);
+
+  // Modal State
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editingItem, setEditingItem] = useState<WebhookItem | null>(null);
+  const [draftName, setDraftName] = useState("");
+  const [draftDesc, setDraftDesc] = useState("");
+  const [draftUrl, setDraftUrl] = useState("");
+  const [draftCategory, setDraftCategory] = useState<WebhookItem["category"]>("GRANT");
+
+  function openCreate() {
+    setEditingItem(null);
+    setDraftName("");
+    setDraftDesc("");
+    setDraftUrl("");
+    setDraftCategory("GRANT");
+    setModalOpen(true);
+  }
+
+  function openEdit(item: WebhookItem) {
+    setEditingItem(item);
+    setDraftName(item.name);
+    setDraftDesc(item.description || "");
+    setDraftUrl(item.url);
+    setDraftCategory(item.category);
+    setModalOpen(true);
+  }
+
+  function handleSave() {
+    if (!draftName.trim() || !draftUrl.trim()) {
+      showNotice("Vui lòng nhập đầy đủ Tên và Đường dẫn Webhook.");
+      return;
+    }
+
+    if (editingItem) {
+      setWebhooks(webhooks.map(w => w.id === editingItem.id ? {
+        ...w,
+        name: draftName.trim(),
+        description: draftDesc.trim(),
+        url: draftUrl.trim(),
+        category: draftCategory,
+      } : w));
+      showNotice("✓ Đã cập nhật Webhook thành công!");
+    } else {
+      const newItem: WebhookItem = {
+        id: `wh_${Date.now()}`,
+        name: draftName.trim(),
+        description: draftDesc.trim(),
+        url: draftUrl.trim(),
+        category: draftCategory,
+        status: "ACTIVE",
+      };
+      setWebhooks([...webhooks, newItem]);
+      showNotice("✓ Đã thêm Webhook mới thành công!");
+    }
+    setModalOpen(false);
+  }
+
+  function handleTogglePause(id: string) {
+    setWebhooks(webhooks.map(w => {
+      if (w.id === id) {
+        const nextStatus = w.status === "ACTIVE" ? "PAUSED" : "ACTIVE";
+        showNotice(nextStatus === "PAUSED" ? `✓ Đã tạm dừng webhook "${w.name}"` : `✓ Đã kích hoạt lại webhook "${w.name}"`);
+        return { ...w, status: nextStatus };
+      }
+      return w;
+    }));
+  }
+
+  function handleDelete(id: string) {
+    setWebhooks(webhooks.filter(w => w.id !== id));
+    showNotice("✓ Đã xoá Webhook.");
+  }
+
+  function handleTest(item: WebhookItem) {
+    showNotice(`✓ Đã gửi test webhook "${item.name}" (HTTP 200 OK)`);
+  }
+
+  return (
+    <div style={{ maxWidth: 1080, padding: "10px 0 40px", display: "flex", flexDirection: "column", gap: 24 }}>
+      {/* Header */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <h1 style={{ fontSize: 24, fontWeight: 700, margin: 0, color: "#000" }}>Webhooks</h1>
+        <button
+          onClick={openCreate}
+          style={{
+            background: "#000",
+            color: "white",
+            border: "none",
+            borderRadius: 6,
+            padding: "8px 16px",
+            fontSize: 13,
+            fontWeight: 600,
+            cursor: "pointer",
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 4,
+          }}
+        >
+          Thêm Webhook
+        </button>
+      </div>
+
+      {/* Webhook List Section */}
+      <section style={{ background: "white", border: "1px solid var(--line)", borderRadius: 8, overflow: "hidden" }}>
+        <div style={{ overflowX: "auto" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left", fontSize: 13 }}>
+            <thead>
+              <tr style={{ background: "#f8fafc", borderBottom: "1px solid var(--line)" }}>
+                <th style={{ padding: "12px 20px", color: "#6b7280", fontWeight: 600, fontSize: 12, width: "22%" }}>Webhook</th>
+                <th style={{ padding: "12px 20px", color: "#6b7280", fontWeight: 600, fontSize: 12, width: "42%" }}>Đường dẫn (Endpoint)</th>
+                <th style={{ padding: "12px 20px", color: "#6b7280", fontWeight: 600, fontSize: 12, width: "14%" }}>Phân loại</th>
+                <th style={{ padding: "12px 20px", color: "#6b7280", fontWeight: 600, fontSize: 12, width: "10%", textAlign: "center" }}>Trạng thái</th>
+                <th style={{ padding: "12px 20px", color: "#6b7280", fontWeight: 600, fontSize: 12, width: "12%", textAlign: "right" }}>Thao tác</th>
+              </tr>
+            </thead>
+            <tbody>
+              {webhooks.map(item => (
+                <tr key={item.id} style={{ borderBottom: "1px solid #f1f5f9", verticalAlign: "middle" }}>
+                  <td style={{ padding: "16px 20px" }}>
+                    <strong style={{ color: "#111827", fontSize: 13.5, display: "block" }}>{item.name}</strong>
+                    {item.description && (
+                      <span style={{ fontSize: 12, color: "#6b7280", display: "block", marginTop: 2 }}>{item.description}</span>
+                    )}
+                  </td>
+                  <td style={{ padding: "16px 20px" }}>
+                    <code style={{ background: "#f9fafb", border: "1px solid #e5e7eb", padding: "4px 8px", borderRadius: 4, color: "#111827", fontFamily: "monospace", wordBreak: "break-all", fontSize: 12.5, display: "inline-block" }}>
+                      {item.url}
+                    </code>
+                  </td>
+                  <td style={{ padding: "16px 20px" }}>
+                    <span style={{ fontSize: 11.5, fontWeight: 600, color: "#374151", background: "#f3f4f6", padding: "3px 8px", borderRadius: 4 }}>
+                      {item.category}
+                    </span>
+                  </td>
+                  <td style={{ padding: "16px 20px", textAlign: "center" }}>
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={item.status === "ACTIVE"}
+                      onClick={() => handleTogglePause(item.id)}
+                      title={item.status === "ACTIVE" ? "Đang bật (Gạt để tạm dừng)" : "Đang tắt (Gạt để kích hoạt)"}
+                      style={{
+                        position: "relative",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        width: 38,
+                        height: 22,
+                        flexShrink: 0,
+                        cursor: "pointer",
+                        borderRadius: 12,
+                        border: "none",
+                        transition: "background-color 0.2s ease-in-out",
+                        backgroundColor: item.status === "ACTIVE" ? "#10b981" : "#cbd5e1",
+                        padding: "2px",
+                        outline: "none",
+                      }}
+                    >
+                      <span
+                        style={{
+                          pointerEvents: "none",
+                          display: "inline-block",
+                          height: 18,
+                          width: 18,
+                          borderRadius: "50%",
+                          backgroundColor: "white",
+                          boxShadow: "0 1px 3px rgba(0, 0, 0, 0.2)",
+                          transition: "transform 0.2s ease-in-out",
+                          transform: item.status === "ACTIVE" ? "translateX(16px)" : "translateX(0px)",
+                        }}
+                      />
+                    </button>
+                  </td>
+                  <td style={{ padding: "16px 20px", textAlign: "right" }}>
+                    <div style={{ display: "flex", gap: 10, alignItems: "center", justifyContent: "flex-end" }}>
+                      <button
+                        type="button"
+                        onClick={() => handleTest(item)}
+                        title="Gửi test webhook"
+                        style={{ background: "transparent", border: "none", cursor: "pointer", color: "#6b7280", padding: "4px", display: "flex", alignItems: "center" }}
+                        onMouseEnter={e => (e.currentTarget.style.color = "#0284c7")}
+                        onMouseLeave={e => (e.currentTarget.style.color = "#6b7280")}
+                      >
+                        <PlayIcon size={18} />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          navigator.clipboard?.writeText(item.url);
+                          showNotice("✓ Đã sao chép Webhook URL");
+                        }}
+                        title="Sao chép"
+                        style={{ background: "transparent", border: "none", cursor: "pointer", color: "#6b7280", padding: "4px", display: "flex", alignItems: "center" }}
+                      >
+                        <CopyIcon size={18} />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => openEdit(item)}
+                        title="Chỉnh sửa"
+                        style={{ background: "transparent", border: "none", cursor: "pointer", color: "#6b7280", padding: "4px", display: "flex", alignItems: "center" }}
+                      >
+                        <EditIcon size={18} />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDelete(item.id)}
+                        title="Xóa"
+                        style={{ background: "transparent", border: "none", cursor: "pointer", color: "#6b7280", padding: "4px", display: "flex", alignItems: "center" }}
+                        onMouseEnter={e => (e.currentTarget.style.color = "#ef4444")}
+                        onMouseLeave={e => (e.currentTarget.style.color = "#6b7280")}
+                      >
+                        <TrashIcon size={18} />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+              {webhooks.length === 0 && (
+                <tr>
+                  <td colSpan={5} style={{ textAlign: "center", padding: "28px", color: "#9ca3af" }}>
+                    Chưa có Webhook nào. Bấm "Thêm Webhook" để tạo mới.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      {/* Popup Modal: Add / Edit Webhook */}
+      {modalOpen && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.45)",
+            display: "grid",
+            placeItems: "center",
+            zIndex: 1000,
+          }}
+          onClick={() => setModalOpen(false)}
+        >
+          <div
+            style={{
+              background: "white",
+              borderRadius: 8,
+              width: "100%",
+              maxWidth: 540,
+              padding: "24px 28px",
+              boxShadow: "0 20px 25px -5px rgba(0,0,0,0.2)",
+            }}
+            onClick={e => e.stopPropagation()}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+              <h3 style={{ fontSize: 18, fontWeight: 700, margin: 0, color: "#0f172a" }}>
+                {editingItem ? "Chỉnh sửa Webhook" : "Thêm Webhook"}
+              </h3>
+              <button
+                onClick={() => setModalOpen(false)}
+                style={{ background: "transparent", border: "none", fontSize: 18, cursor: "pointer", color: "#64748b" }}
+              >
+                ✕
+              </button>
+            </div>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+              {/* Field 1: Tên */}
+              <div>
+                <label style={{ display: "block", fontSize: 13, fontWeight: 600, color: "#1e293b", marginBottom: 4 }}>
+                  Tên *
+                </label>
+                <input
+                  type="text"
+                  placeholder=""
+                  value={draftName}
+                  onChange={e => setDraftName(e.target.value)}
+                  style={{
+                    width: "100%",
+                    padding: "9px 12px",
+                    border: "1px solid #cbd5e1",
+                    borderRadius: 6,
+                    fontSize: 13.5,
+                    boxSizing: "border-box",
+                  }}
+                />
+                <span style={{ fontSize: 12, color: "#64748b", marginTop: 4, display: "block" }}>
+                  Tên của Webhook
+                </span>
+              </div>
+
+              {/* Field 2: Mô tả */}
+              <div>
+                <label style={{ display: "block", fontSize: 13, fontWeight: 600, color: "#1e293b", marginBottom: 4 }}>
+                  Mô tả
+                </label>
+                <input
+                  type="text"
+                  placeholder=""
+                  value={draftDesc}
+                  onChange={e => setDraftDesc(e.target.value)}
+                  style={{
+                    width: "100%",
+                    padding: "9px 12px",
+                    border: "1px solid #cbd5e1",
+                    borderRadius: 6,
+                    fontSize: 13.5,
+                    boxSizing: "border-box",
+                  }}
+                />
+                <span style={{ fontSize: 12, color: "#64748b", marginTop: 4, display: "block" }}>
+                  Mô tả cho Webhook
+                </span>
+              </div>
+
+              {/* Field 3: Đường dẫn */}
+              <div>
+                <label style={{ display: "block", fontSize: 13, fontWeight: 600, color: "#1e293b", marginBottom: 4 }}>
+                  Đường dẫn *
+                </label>
+                <input
+                  type="text"
+                  placeholder=""
+                  value={draftUrl}
+                  onChange={e => setDraftUrl(e.target.value)}
+                  style={{
+                    width: "100%",
+                    padding: "9px 12px",
+                    border: "1px solid #cbd5e1",
+                    borderRadius: 6,
+                    fontSize: 13.5,
+                    boxSizing: "border-box",
+                  }}
+                />
+                <span style={{ fontSize: 12, color: "#64748b", marginTop: 4, display: "block" }}>
+                  Url của Webhook
+                </span>
+              </div>
+
+              {/* Field 4: Phân loại Webhook */}
+              <div>
+                <label style={{ display: "block", fontSize: 13, fontWeight: 600, color: "#1e293b", marginBottom: 4 }}>
+                  Phân loại Webhook *
+                </label>
+                <select
+                  value={draftCategory}
+                  onChange={e => setDraftCategory(e.target.value as any)}
+                  style={{
+                    width: "100%",
+                    padding: "9px 12px",
+                    border: "1px solid #cbd5e1",
+                    borderRadius: 6,
+                    fontSize: 13.5,
+                    background: "white",
+                    boxSizing: "border-box",
+                  }}
+                >
+                  <option value="GRANT">GRANT</option>
+                  <option value="TRANSACTIONS">TRANSACTIONS</option>
+                  <option value="INVOICE">INVOICE</option>
+                  <option value="AUTO_DEBIT">AUTO_DEBIT</option>
+                  <option value="TVAN">TVAN</option>
+                  <option value="SIGN">SIGN</option>
+                </select>
+              </div>
+            </div>
+
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 26 }}>
+              <button
+                onClick={() => setModalOpen(false)}
+                style={{
+                  background: "#f1f5f9",
+                  border: "none",
+                  borderRadius: 6,
+                  padding: "9px 18px",
+                  fontSize: 13,
+                  fontWeight: 600,
+                  cursor: "pointer",
+                  color: "#475569",
+                }}
+              >
+                Hủy
+              </button>
+              <button
+                onClick={handleSave}
+                style={{
+                  background: "#000",
+                  border: "none",
+                  borderRadius: 6,
+                  padding: "9px 22px",
+                  fontSize: 13,
+                  fontWeight: 600,
+                  cursor: "pointer",
+                  color: "white",
+                }}
+              >
+                Lưu Webhook
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+type GrantDebugData = {
+  grantId: string;
+  user?: string | null;
+  bank?: string | null;
+  accountNo?: string | null;
+  scopes: string[];
+  status: "Active" | "Paused" | "Revoked" | "Pending";
+  createdAt: string;
+  lastAccess: string;
+  logs: {
+    id: string;
+    timestamp: string;
+    endpoint: string;
+    method: string;
+    status: number;
+    latency: string;
+    requestId: string;
+  }[];
+};
+
+const mockGrantsDb: Record<string, GrantDebugData> = {
+  "grt_8L2KP91N": {
+    grantId: "grt_8L2KP91N",
+    user: "Nguyễn Minh Anh",
+    bank: "Techcombank (TCB)",
+    accountNo: "19038291048201",
+    scopes: ["Transaction", "Balance", "Identity"],
+    status: "Active",
+    createdAt: "12/05/2026 09:24:12",
+    lastAccess: "2 phút trước",
+    logs: [
+      { id: "log_01", timestamp: "19/08/2026 17:31:04", endpoint: "/v2/transactions", method: "GET", status: 200, latency: "284 ms", requestId: "req_8K2MP91N" },
+      { id: "log_02", timestamp: "19/08/2026 17:28:10", endpoint: "/v2/balance", method: "GET", status: 200, latency: "198 ms", requestId: "req_8K2MP91N" },
+      { id: "log_03", timestamp: "19/08/2026 16:45:22", endpoint: "/v2/identity", method: "POST", status: 200, latency: "412 ms", requestId: "req_7X9AB12C" },
+      { id: "log_04", timestamp: "19/08/2026 14:10:05", endpoint: "/v2/transactions/sync", method: "POST", status: 200, latency: "310 ms", requestId: "req_4T7QD20A" },
+      { id: "log_05", timestamp: "18/08/2026 21:05:40", endpoint: "/grant/token", method: "POST", status: 200, latency: "145 ms", requestId: "req_1A9VC63F" },
+    ],
+  },
+  "grt_4T7MD20Q": {
+    grantId: "grt_4T7MD20Q",
+    user: "Trần Hoàng Long",
+    bank: "Vietcombank (VCB)",
+    accountNo: "0071001928491",
+    scopes: ["Balance", "QRPay", "Transfer"],
+    status: "Active",
+    createdAt: "15/06/2026 14:10:00",
+    lastAccess: "11 phút trước",
+    logs: [
+      { id: "log_11", timestamp: "19/08/2026 17:22:15", endpoint: "/v2/qr/create", method: "POST", status: 200, latency: "215 ms", requestId: "req_6P3RF82W" },
+      { id: "log_12", timestamp: "19/08/2026 17:15:30", endpoint: "/v2/balance", method: "GET", status: 200, latency: "326 ms", requestId: "req_4T7QD20A" },
+      { id: "log_13", timestamp: "19/08/2026 15:40:12", endpoint: "/v2/transfers", method: "POST", status: 200, latency: "650 ms", requestId: "req_8K2MP91N" },
+    ],
+  },
+  "grt_1A9HC63V": {
+    grantId: "grt_1A9HC63V",
+    user: "Phạm Thùy Linh",
+    bank: "MB Bank (MBB)",
+    accountNo: "8829103948102",
+    scopes: ["Identity", "eKYC"],
+    status: "Paused",
+    createdAt: "01/07/2026 10:00:00",
+    lastAccess: "36 phút trước",
+    logs: [
+      { id: "log_21", timestamp: "19/08/2026 16:55:00", endpoint: "/v2/ekyc/verify", method: "POST", status: 429, latency: "580 ms", requestId: "req_1A9VC63F" },
+      { id: "log_22", timestamp: "19/08/2026 16:50:00", endpoint: "/v2/ekyc/sessions", method: "POST", status: 200, latency: "490 ms", requestId: "req_1A9VC63F" },
+    ],
+  },
+  "grt_9X2PENDING": {
+    grantId: "grt_9X2PENDING",
+    user: null,
+    bank: null,
+    accountNo: null,
+    scopes: ["Transaction", "Balance"],
+    status: "Pending",
+    createdAt: "19/08/2026 18:00:00",
+    lastAccess: "Chưa phát sinh",
+    logs: [
+      { id: "log_31", timestamp: "19/08/2026 18:00:00", endpoint: "/grant/init", method: "POST", status: 200, latency: "110 ms", requestId: "req_9X2INIT" },
+    ],
+  },
+};
+
+function GrantDebuggerScreen({ showNotice }: { showNotice: (message: string) => void }) {
+  const [searchGrantId, setSearchGrantId] = useState("grt_8L2KP91N");
+  const [activeGrant, setActiveGrant] = useState<GrantDebugData | null>(mockGrantsDb["grt_8L2KP91N"]);
+  const [searched, setSearched] = useState(true);
+
+  function handleSearch(idToSearch?: string) {
+    const query = (idToSearch || searchGrantId).trim();
+    if (!query) {
+      showNotice("Vui lòng nhập Grant ID để tìm kiếm.");
+      return;
+    }
+    const found = mockGrantsDb[query];
+    if (found) {
+      setActiveGrant(found);
+      setSearched(true);
+      showNotice(`✓ Đã tìm thấy log của Grant: ${query}`);
+    } else {
+      setActiveGrant(null);
+      setSearched(true);
+      showNotice(`Không tìm thấy dữ liệu cho Grant ID: ${query}`);
+    }
+  }
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 20, maxWidth: 960, padding: "4px 0 30px" }}>
+      {/* Search Header */}
+      <section style={{ background: "white", border: "1px solid var(--line)", borderRadius: 8, padding: "20px" }}>
+        <h2 style={{ fontSize: 18, fontWeight: 700, margin: "0 0 6px 0", color: "#0f172a" }}>
+          Grant Debugger
+        </h2>
+        <p style={{ fontSize: 13, color: "#64748b", margin: "0 0 16px 0" }}>
+          Tra cứu thông tin và lịch sử các lượt gọi API của từng Grant ID.
+        </p>
+
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          <input
+            type="text"
+            placeholder="Nhập Grant ID (Ví dụ: grt_8L2KP91N, grt_4T7MD20Q, grt_9X2PENDING)..."
+            value={searchGrantId}
+            onChange={e => setSearchGrantId(e.target.value)}
+            onKeyDown={e => { if (e.key === "Enter") handleSearch(); }}
+            style={{
+              flex: 1,
+              padding: "8px 12px",
+              border: "1px solid #cbd5e1",
+              borderRadius: 6,
+              fontSize: 13.5,
+              fontFamily: "monospace",
+              outline: "none",
+            }}
+          />
+          <button
+            onClick={() => handleSearch()}
+            style={{
+              background: "#000",
+              color: "white",
+              border: "none",
+              borderRadius: 6,
+              padding: "8px 18px",
+              fontSize: 13,
+              fontWeight: 600,
+              cursor: "pointer",
+            }}
+          >
+            Tra cứu
+          </button>
+        </div>
+      </section>
+
+      {/* Grant Details & Call Logs */}
+      {activeGrant ? (
+        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          {/* Grant Overview Card */}
+          <div style={{ background: "white", border: "1px solid var(--line)", borderRadius: 8, padding: "18px 20px" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 14 }}>
+              <div>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <h3 style={{ fontSize: 16, fontWeight: 700, margin: 0, color: activeGrant.user ? "#0f172a" : "#64748b" }}>
+                    {activeGrant.user || "Chưa có thông tin người dùng"}
+                  </h3>
+                  <span
+                    style={{
+                      fontSize: 11.5,
+                      fontWeight: 600,
+                      color:
+                        activeGrant.status === "Active"
+                          ? "#16a34a"
+                          : activeGrant.status === "Pending"
+                            ? "#d97706"
+                            : activeGrant.status === "Paused"
+                              ? "#d97706"
+                              : "#dc2626",
+                      background:
+                        activeGrant.status === "Active"
+                          ? "#dcfce7"
+                          : activeGrant.status === "Pending"
+                            ? "#fef3c7"
+                            : activeGrant.status === "Paused"
+                              ? "#fef3c7"
+                              : "#fee2e2",
+                      padding: "2px 8px",
+                      borderRadius: 4,
+                    }}
+                  >
+                    ● {activeGrant.status === "Pending" ? "Chưa cấp quyền" : activeGrant.status === "Active" ? "Hoạt động" : activeGrant.status === "Paused" ? "Tạm dừng" : "Đã thu hồi"}
+                  </span>
+                </div>
+                <div style={{ fontSize: 13, color: "#64748b", marginTop: 4 }}>
+                  {activeGrant.bank ? (
+                    <>
+                      Ngân hàng: <strong style={{ color: "#0f172a" }}>{activeGrant.bank}</strong>
+                      {activeGrant.accountNo ? (
+                        <>
+                          {" "}· Số TK: <code style={{ fontFamily: "monospace", color: "#0f172a" }}>{activeGrant.accountNo}</code>
+                        </>
+                      ) : null}
+                    </>
+                  ) : (
+                    <span>
+                      Ngân hàng: <em style={{ color: "#94a3b8" }}>Chưa liên kết (Người dùng chưa hoàn tất cấp quyền)</em>
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12, background: "#f8fafc", borderRadius: 6, padding: "12px 14px" }}>
+              <div>
+                <small style={{ color: "#64748b", fontSize: 11, display: "block" }}>GRANT ID</small>
+                <code style={{ fontSize: 12.5, fontWeight: 600, color: "#0f172a" }}>{activeGrant.grantId}</code>
+              </div>
+              <div>
+                <small style={{ color: "#64748b", fontSize: 11, display: "block" }}>SCOPES YÊU CẦU</small>
+                <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginTop: 2 }}>
+                  {activeGrant.scopes.map(s => (
+                    <span key={s} style={{ fontSize: 11, background: "#e2e8f0", color: "#334155", padding: "1px 6px", borderRadius: 3, fontWeight: 600 }}>{s}</span>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <small style={{ color: "#64748b", fontSize: 11, display: "block" }}>NGÀY TẠO</small>
+                <span style={{ fontSize: 12, color: "#0f172a" }}>{activeGrant.createdAt}</span>
+              </div>
+              <div>
+                <small style={{ color: "#64748b", fontSize: 11, display: "block" }}>TRUY CẬP GẦN NHẤT</small>
+                <span style={{ fontSize: 12, color: "#0f172a" }}>{activeGrant.lastAccess}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Call Logs Table */}
+          <div style={{ background: "white", border: "1px solid var(--line)", borderRadius: 8, padding: "18px 20px" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+              <h3 style={{ fontSize: 15, fontWeight: 700, margin: 0, color: "#0f172a" }}>
+                Lịch sử gọi API ({activeGrant.logs.length} logs)
+              </h3>
+            </div>
+
+            <div style={{ border: "1px solid var(--line)", borderRadius: 6, overflow: "hidden" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left", fontSize: 13 }}>
+                <thead>
+                  <tr style={{ background: "#f8fafc", borderBottom: "1px solid var(--line)" }}>
+                    <th style={{ padding: "10px 12px", color: "#64748b", fontWeight: 600, fontSize: 12 }}>Thời gian</th>
+                    <th style={{ padding: "10px 12px", color: "#64748b", fontWeight: 600, fontSize: 12 }}>Method & Endpoint</th>
+                    <th style={{ padding: "10px 12px", color: "#64748b", fontWeight: 600, fontSize: 12 }}>Status</th>
+                    <th style={{ padding: "10px 12px", color: "#64748b", fontWeight: 600, fontSize: 12 }}>Latency</th>
+                    <th style={{ padding: "10px 12px", color: "#64748b", fontWeight: 600, fontSize: 12 }}>Request ID</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {activeGrant.logs.length === 0 ? (
+                    <tr>
+                      <td colSpan={5} style={{ textAlign: "center", padding: "24px 12px", color: "#94a3b8" }}>
+                        Chưa có lượt gọi API nào cho Grant ID này.
+                      </td>
+                    </tr>
+                  ) : (
+                    activeGrant.logs.map(log => (
+                      <tr key={log.id} style={{ borderBottom: "1px solid #f1f5f9" }}>
+                        <td style={{ padding: "10px 12px", color: "#64748b", fontSize: 12, whiteSpace: "nowrap" }}>
+                          {log.timestamp}
+                        </td>
+                        <td style={{ padding: "10px 12px" }}>
+                          <code style={{ background: "#f1f5f9", padding: "2px 6px", borderRadius: 4, fontSize: 12, color: "#0f172a", fontFamily: "monospace" }}>
+                            {log.method} {log.endpoint}
+                          </code>
+                        </td>
+                        <td style={{ padding: "10px 12px" }}>
+                          <span style={{ fontSize: 11.5, fontWeight: 700, color: log.status === 200 ? "#16a34a" : "#dc2626", background: log.status === 200 ? "#dcfce7" : "#fee2e2", padding: "2px 6px", borderRadius: 4 }}>
+                            {log.status}
+                          </span>
+                        </td>
+                        <td style={{ padding: "10px 12px", color: "#64748b", fontSize: 12 }}>
+                          {log.latency}
+                        </td>
+                        <td style={{ padding: "10px 12px", color: "#475569", fontSize: 12, fontFamily: "monospace" }}>
+                          {log.requestId}
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      ) : searched ? (
+        <div style={{ textAlign: "center", padding: "30px 20px", background: "white", borderRadius: 8, border: "1px dashed #cbd5e1" }}>
+          <h3 style={{ fontSize: 15, fontWeight: 700, margin: "0 0 4px 0", color: "#0f172a" }}>
+            Không tìm thấy Grant ID: "{searchGrantId}"
+          </h3>
+          <p style={{ fontSize: 12.5, color: "#64748b", margin: 0 }}>
+            Vui lòng kiểm tra lại mã Grant ID.
+          </p>
+        </div>
+      ) : null}
+    </div>
+  );
 }
 
 function DataScreen({ data, showNotice }: { data: typeof screenData[string]; showNotice: (message: string) => void }) {
@@ -2640,4 +4227,1397 @@ function StatusValue({ value }: { value: string }) {
 
 function WebhookStatus({ value }: { value: string }) {
   return <span className={`webhook-status ${value.toLowerCase()}`}><i />{value === "Delivered" ? "Đã gửi" : value === "Retrying" ? "Đang thử lại" : value === "Failed" ? "Thất bại" : value}</span>;
+}
+
+function TeamSettingsScreen({
+  teams,
+  setTeams,
+  selectedTeam,
+  setSelectedTeam,
+  selectedApp,
+  setSelectedApp,
+  members,
+  setMembers,
+  onNavigate,
+  showNotice,
+  initialTab = "overview",
+}: {
+  teams: TeamData[];
+  setTeams: React.Dispatch<React.SetStateAction<TeamData[]>>;
+  selectedTeam: TeamData;
+  setSelectedTeam: (t: TeamData) => void;
+  selectedApp: AppData;
+  setSelectedApp: (a: AppData) => void;
+  members: TeamMember[];
+  setMembers: React.Dispatch<React.SetStateAction<TeamMember[]>>;
+  onNavigate: (screen: string) => void;
+  showNotice: (msg: string) => void;
+  initialTab?: "overview" | "members" | "apps";
+}) {
+  const [activeTab, setActiveTab] = useState<"overview" | "members" | "apps">(initialTab);
+  const [openTeamMenuId, setOpenTeamMenuId] = useState<string | null>(null);
+  const [openAppMenuId, setOpenAppMenuId] = useState<string | null>(null);
+  const [openMemberMenuId, setOpenMemberMenuId] = useState<string | null>(null);
+
+  function handleLeaveTeam(teamId: string, teamName: string) {
+    setOpenTeamMenuId(null);
+    showNotice(`Đã rời khỏi team "${teamName}"`);
+  }
+
+  function handleDeleteTeam(teamId: string, teamName: string) {
+    setOpenTeamMenuId(null);
+    if (teams.length <= 1) {
+      showNotice("Không thể xoá team duy nhất của bạn");
+      return;
+    }
+    setTeams(prev => prev.filter(t => t.id !== teamId));
+    if (selectedTeam.id === teamId) {
+      const remaining = teams.filter(t => t.id !== teamId);
+      setSelectedTeam(remaining[0]);
+      setSelectedApp(remaining[0].apps[0]);
+    }
+    showNotice(`✓ Đã xoá team "${teamName}"`);
+  }
+
+  function handleDeleteApp(appId: string, appName: string) {
+    setOpenAppMenuId(null);
+    if (selectedTeam.apps.length <= 1) {
+      showNotice("Mỗi team phải có ít nhất 1 ứng dụng");
+      return;
+    }
+    setTeams(prev => prev.map(t => {
+      if (t.id === selectedTeam.id) {
+        return { ...t, apps: t.apps.filter(a => a.id !== appId) };
+      }
+      return t;
+    }));
+    if (selectedApp.id === appId) {
+      const remainingApps = selectedTeam.apps.filter(a => a.id !== appId);
+      setSelectedApp(remainingApps[0]);
+    }
+    showNotice(`✓ Đã xoá ứng dụng "${appName}"`);
+  }
+
+  const otherTeams = teams.filter(t => t.id !== selectedTeam.id);
+  const otherApps = selectedTeam.apps.filter(a => a.id !== selectedApp.id);
+
+  return (
+    <div style={{ maxWidth: 960, padding: "8px 0 40px" }} onClick={() => { setOpenTeamMenuId(null); setOpenAppMenuId(null); setOpenMemberMenuId(null); }}>
+      {/* Header */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+        <h1 style={{ fontSize: 24, fontWeight: 700, margin: 0, color: "#000" }}>Team của tôi</h1>
+        <button
+          onClick={() => onNavigate("Tạo một team mới")}
+          style={{
+            background: "none",
+            border: "none",
+            fontSize: 14,
+            fontWeight: 600,
+            color: "#000",
+            cursor: "pointer",
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 6,
+            padding: 0,
+          }}
+        >
+          Tạo một team mới
+        </button>
+      </div>
+
+      {/* Tab Navigation */}
+      <div style={{ display: "flex", gap: 32, borderBottom: "1px solid #e2e8f0", marginBottom: 28 }}>
+        <button
+          onClick={() => setActiveTab("overview")}
+          style={{
+            background: "none",
+            border: "none",
+            padding: "10px 0 12px",
+            fontSize: 13,
+            fontWeight: 700,
+            color: activeTab === "overview" ? "#000" : "#64748b",
+            borderBottom: activeTab === "overview" ? "2px solid #000" : "2px solid transparent",
+            cursor: "pointer",
+            letterSpacing: "0.5px",
+          }}
+        >
+          TỔNG QUAN
+        </button>
+        <button
+          onClick={() => setActiveTab("members")}
+          style={{
+            background: "none",
+            border: "none",
+            padding: "10px 0 12px",
+            fontSize: 13,
+            fontWeight: 700,
+            color: activeTab === "members" ? "#000" : "#64748b",
+            borderBottom: activeTab === "members" ? "2px solid #000" : "2px solid transparent",
+            cursor: "pointer",
+            letterSpacing: "0.5px",
+          }}
+        >
+          THÀNH VIÊN
+        </button>
+        <button
+          onClick={() => setActiveTab("apps")}
+          style={{
+            background: "none",
+            border: "none",
+            padding: "10px 0 12px",
+            fontSize: 13,
+            fontWeight: 700,
+            color: activeTab === "apps" ? "#000" : "#64748b",
+            borderBottom: activeTab === "apps" ? "2px solid #000" : "2px solid transparent",
+            cursor: "pointer",
+            letterSpacing: "0.5px",
+          }}
+        >
+          DANH SÁCH ỨNG DỤNG
+        </button>
+      </div>
+
+      {/* Tab Content: TỔNG QUAN */}
+      {activeTab === "overview" && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 28 }}>
+          {/* Current Team */}
+          <div>
+            <div style={{ fontSize: 13.5, fontWeight: 600, color: "#000", marginBottom: 12 }}>Team hiện tại</div>
+            <div
+              style={{
+                background: "white",
+                border: "1px solid #e2e8f0",
+                borderRadius: 8,
+                padding: "14px 18px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                boxShadow: "0 1px 3px rgba(0,0,0,0.02)",
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+                <span
+                  style={{
+                    width: 36,
+                    height: 36,
+                    borderRadius: 6,
+                    background: "#4f46e5",
+                    color: "white",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontWeight: 700,
+                    fontSize: 13,
+                  }}
+                >
+                  {selectedTeam.short || selectedTeam.name.substring(0, 2).toUpperCase()}
+                </span>
+                <div>
+                  <strong style={{ fontSize: 14.5, color: "#0f172a", display: "block" }}>{selectedTeam.name}</strong>
+                  <span style={{ fontSize: 12, color: "#64748b" }}>{selectedTeam.apps.length} ứng dụng · Vai trò: {selectedTeam.role}</span>
+                </div>
+              </div>
+
+              {/* Action dropdown */}
+              <div style={{ position: "relative" }}>
+                <button
+                  onClick={e => {
+                    e.stopPropagation();
+                    setOpenTeamMenuId(openTeamMenuId === selectedTeam.id ? null : selectedTeam.id);
+                  }}
+                  style={{
+                    background: "transparent",
+                    border: "none",
+                    cursor: "pointer",
+                    fontSize: 18,
+                    color: "#64748b",
+                    padding: "4px 8px",
+                    borderRadius: 4,
+                  }}
+                >
+                  •••
+                </button>
+                {openTeamMenuId === selectedTeam.id && (
+                  <div
+                    style={{
+                      position: "absolute",
+                      right: 0,
+                      top: "calc(100% + 4px)",
+                      background: "white",
+                      border: "1px solid #e2e8f0",
+                      borderRadius: 8,
+                      boxShadow: "0 10px 25px rgba(0,0,0,0.1)",
+                      width: 160,
+                      zIndex: 30,
+                      padding: "4px 0",
+                    }}
+                    onClick={e => e.stopPropagation()}
+                  >
+                    <button
+                      onClick={() => handleLeaveTeam(selectedTeam.id, selectedTeam.name)}
+                      style={{
+                        width: "100%",
+                        padding: "8px 14px",
+                        textAlign: "left",
+                        background: "none",
+                        border: "none",
+                        fontSize: 13,
+                        color: "#334155",
+                        cursor: "pointer",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 8,
+                      }}
+                      onMouseEnter={e => (e.currentTarget.style.background = "#f8fafc")}
+                      onMouseLeave={e => (e.currentTarget.style.background = "none")}
+                    >
+                      🚪 Rời khỏi team
+                    </button>
+                    <button
+                      onClick={() => handleDeleteTeam(selectedTeam.id, selectedTeam.name)}
+                      style={{
+                        width: "100%",
+                        padding: "8px 14px",
+                        textAlign: "left",
+                        background: "none",
+                        border: "none",
+                        fontSize: 13,
+                        color: "#dc2626",
+                        cursor: "pointer",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 8,
+                      }}
+                      onMouseEnter={e => (e.currentTarget.style.background = "#fef2f2")}
+                      onMouseLeave={e => (e.currentTarget.style.background = "none")}
+                    >
+                      🗑 Xoá team
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Other Teams */}
+          <div>
+            <div style={{ fontSize: 13.5, fontWeight: 600, color: "#000", marginBottom: 12 }}>Các team khác</div>
+            {otherTeams.length === 0 ? (
+              <div style={{ padding: "24px", textAlign: "center", background: "white", border: "1px dashed #cbd5e1", borderRadius: 8, color: "#64748b", fontSize: 13 }}>
+                Bạn chưa có team phụ nào khác. Nhấn <strong>Tạo một team mới</strong> ở trên để tạo thêm.
+              </div>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                {otherTeams.map(team => (
+                  <div
+                    key={team.id}
+                    style={{
+                      background: "white",
+                      border: "1px solid #e2e8f0",
+                      borderRadius: 8,
+                      padding: "14px 18px",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      boxShadow: "0 1px 3px rgba(0,0,0,0.02)",
+                    }}
+                  >
+                    <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+                      <span
+                        style={{
+                          width: 36,
+                          height: 36,
+                          borderRadius: 6,
+                          background: "#db2777",
+                          color: "white",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          fontWeight: 700,
+                          fontSize: 13,
+                        }}
+                      >
+                        {team.short || team.name.substring(0, 2).toUpperCase()}
+                      </span>
+                      <div>
+                        <strong style={{ fontSize: 14.5, color: "#0f172a", display: "block" }}>{team.name}</strong>
+                        <span style={{ fontSize: 12, color: "#64748b" }}>{team.apps.length} ứng dụng · Vai trò: {team.role}</span>
+                      </div>
+                    </div>
+
+                    <div style={{ display: "flex", alignItems: "center", gap: 10, position: "relative" }}>
+                      <button
+                        onClick={() => {
+                          setSelectedTeam(team);
+                          setSelectedApp(team.apps[0]);
+                          showNotice(`✓ Đã chuyển sang team: ${team.name}`);
+                        }}
+                        style={{
+                          background: "#f8fafc",
+                          border: "1px solid #cbd5e1",
+                          borderRadius: 6,
+                          padding: "6px 12px",
+                          fontSize: 12.5,
+                          fontWeight: 600,
+                          color: "#0f172a",
+                          cursor: "pointer",
+                        }}
+                      >
+                        Chuyển team
+                      </button>
+                      <button
+                        onClick={e => {
+                          e.stopPropagation();
+                          setOpenTeamMenuId(openTeamMenuId === team.id ? null : team.id);
+                        }}
+                        style={{
+                          background: "transparent",
+                          border: "none",
+                          cursor: "pointer",
+                          fontSize: 18,
+                          color: "#64748b",
+                          padding: "4px 8px",
+                          borderRadius: 4,
+                        }}
+                      >
+                        •••
+                      </button>
+                      {openTeamMenuId === team.id && (
+                        <div
+                          style={{
+                            position: "absolute",
+                            right: 0,
+                            top: "calc(100% + 4px)",
+                            background: "white",
+                            border: "1px solid #e2e8f0",
+                            borderRadius: 8,
+                            boxShadow: "0 10px 25px rgba(0,0,0,0.1)",
+                            width: 160,
+                            zIndex: 30,
+                            padding: "4px 0",
+                          }}
+                          onClick={e => e.stopPropagation()}
+                        >
+                          <button
+                            onClick={() => handleLeaveTeam(team.id, team.name)}
+                            style={{
+                              width: "100%",
+                              padding: "8px 14px",
+                              textAlign: "left",
+                              background: "none",
+                              border: "none",
+                              fontSize: 13,
+                              color: "#334155",
+                              cursor: "pointer",
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 8,
+                            }}
+                            onMouseEnter={e => (e.currentTarget.style.background = "#f8fafc")}
+                            onMouseLeave={e => (e.currentTarget.style.background = "none")}
+                          >
+                            🚪 Rời khỏi team
+                          </button>
+                          <button
+                            onClick={() => handleDeleteTeam(team.id, team.name)}
+                            style={{
+                              width: "100%",
+                              padding: "8px 14px",
+                              textAlign: "left",
+                              background: "none",
+                              border: "none",
+                              fontSize: 13,
+                              color: "#dc2626",
+                              cursor: "pointer",
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 8,
+                            }}
+                            onMouseEnter={e => (e.currentTarget.style.background = "#fef2f2")}
+                            onMouseLeave={e => (e.currentTarget.style.background = "none")}
+                          >
+                            🗑 Xoá team
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Tab Content: THÀNH VIÊN */}
+      {activeTab === "members" && (
+        <div>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+            <div>
+              <strong style={{ fontSize: 15, color: "#0f172a", display: "block" }}>Danh sách thành viên</strong>
+              <span style={{ fontSize: 13, color: "#64748b" }}>Quản lý các thành viên và phân quyền trong team</span>
+            </div>
+            <button
+              onClick={() => onNavigate("Mời thành viên mới")}
+              style={{
+                background: "#0f172a",
+                color: "white",
+                border: "none",
+                borderRadius: 6,
+                padding: "8px 16px",
+                fontSize: 13,
+                fontWeight: 600,
+                cursor: "pointer",
+                display: "inline-flex",
+                alignItems: "center",
+              }}
+            >
+              Mời thành viên
+            </button>
+          </div>
+
+          <div style={{ background: "white", border: "1px solid #e2e8f0", borderRadius: 8, overflow: "hidden", boxShadow: "0 1px 3px rgba(0,0,0,0.02)" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left", fontSize: 13.5 }}>
+              <thead>
+                <tr style={{ background: "#f8fafc", borderBottom: "1px solid #e2e8f0" }}>
+                  <th style={{ padding: "14px 18px", color: "#64748b", fontWeight: 600, fontSize: 12.5 }}>Tên</th>
+                  <th style={{ padding: "14px 18px", color: "#64748b", fontWeight: 600, fontSize: 12.5 }}>Email</th>
+                  <th style={{ padding: "14px 18px", color: "#64748b", fontWeight: 600, fontSize: 12.5 }}>Trạng thái</th>
+                  <th style={{ padding: "14px 18px", color: "#64748b", fontWeight: 600, fontSize: 12.5 }}>Số điện thoại</th>
+                  <th style={{ padding: "14px 18px", color: "#64748b", fontWeight: 600, fontSize: 12.5 }}>Vị trí</th>
+                  <th style={{ padding: "14px 18px", color: "#64748b", fontWeight: 600, fontSize: 12.5, textAlign: "right" }}></th>
+                </tr>
+              </thead>
+              <tbody>
+                {members.map(member => (
+                  <tr key={member.id} style={{ borderBottom: "1px solid #f1f5f9" }}>
+                    <td style={{ padding: "14px 18px", fontWeight: 600, color: "#0f172a" }}>{member.name}</td>
+                    <td style={{ padding: "14px 18px", color: "#334155" }}>{member.email}</td>
+                    <td style={{ padding: "14px 18px" }}>
+                      <span style={{ fontSize: 11.5, fontWeight: 700, color: member.status === "ACTIVE" ? "#16a34a" : "#d97706", letterSpacing: "0.5px" }}>
+                        {member.status}
+                      </span>
+                    </td>
+                    <td style={{ padding: "14px 18px", color: "#64748b" }}>{member.phone}</td>
+                    <td style={{ padding: "14px 18px", fontWeight: 600, color: "#0f172a" }}>{member.role}</td>
+                    <td style={{ padding: "14px 18px", textAlign: "right", position: "relative" }}>
+                      <button
+                        onClick={e => {
+                          e.stopPropagation();
+                          setOpenMemberMenuId(openMemberMenuId === member.id ? null : member.id);
+                        }}
+                        style={{
+                          background: "transparent",
+                          border: "none",
+                          cursor: "pointer",
+                          color: "#94a3b8",
+                          fontSize: 16,
+                          padding: "2px 6px",
+                        }}
+                      >
+                        ⋮
+                      </button>
+                      {openMemberMenuId === member.id && (
+                        <div
+                          style={{
+                            position: "absolute",
+                            right: 18,
+                            top: "calc(100% - 6px)",
+                            background: "white",
+                            border: "1px solid #e2e8f0",
+                            borderRadius: 6,
+                            boxShadow: "0 8px 20px rgba(0,0,0,0.1)",
+                            width: 140,
+                            zIndex: 30,
+                            padding: "4px 0",
+                            textAlign: "left",
+                          }}
+                          onClick={e => e.stopPropagation()}
+                        >
+                          <button
+                            onClick={() => {
+                              setOpenMemberMenuId(null);
+                              showNotice(`Đã đổi vai trò cho ${member.name}`);
+                            }}
+                            style={{ width: "100%", padding: "7px 12px", border: "none", background: "none", fontSize: 12.5, textAlign: "left", cursor: "pointer", color: "#334155" }}
+                            onMouseEnter={e => (e.currentTarget.style.background = "#f8fafc")}
+                            onMouseLeave={e => (e.currentTarget.style.background = "none")}
+                          >
+                            ✎ Đổi vai trò
+                          </button>
+                          <button
+                            onClick={() => {
+                              setOpenMemberMenuId(null);
+                              if (member.role === "OWNER") {
+                                showNotice("Không thể xoá Owner của team");
+                                return;
+                              }
+                              setMembers(prev => prev.filter(m => m.id !== member.id));
+                              showNotice(`Đã xoá ${member.name} khỏi team`);
+                            }}
+                            style={{ width: "100%", padding: "7px 12px", border: "none", background: "none", fontSize: 12.5, textAlign: "left", cursor: "pointer", color: "#dc2626" }}
+                            onMouseEnter={e => (e.currentTarget.style.background = "#fef2f2")}
+                            onMouseLeave={e => (e.currentTarget.style.background = "none")}
+                          >
+                            🗑 Xoá thành viên
+                          </button>
+                        </div>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* Tab Content: DANH SÁCH ỨNG DỤNG */}
+      {activeTab === "apps" && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 28 }}>
+          {/* Current App */}
+          <div>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+              <span style={{ fontSize: 13.5, fontWeight: 600, color: "#000" }}>Ứng dụng hiện tại</span>
+              <button
+                onClick={() => onNavigate("Tạo ứng dụng mới")}
+                style={{
+                  background: "white",
+                  border: "1px solid #cbd5e1",
+                  borderRadius: 6,
+                  padding: "6px 14px",
+                  fontSize: 13,
+                  fontWeight: 600,
+                  color: "#0f172a",
+                  cursor: "pointer",
+                }}
+              >
+                Tạo ứng dụng mới
+              </button>
+            </div>
+            <div
+              style={{
+                background: "white",
+                border: "1px solid #e2e8f0",
+                borderRadius: 8,
+                padding: "16px 18px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                boxShadow: "0 1px 3px rgba(0,0,0,0.02)",
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+                <span
+                  style={{
+                    width: 36,
+                    height: 36,
+                    borderRadius: 6,
+                    background: selectedApp.color || "#6956d9",
+                    color: "white",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontWeight: 700,
+                    fontSize: 13,
+                  }}
+                >
+                  {selectedApp.short}
+                </span>
+                <div>
+                  <strong style={{ fontSize: 14.5, color: "#0f172a", display: "block" }}>{selectedApp.name}</strong>
+                  <span style={{ fontSize: 12, color: "#64748b" }}>
+                    Môi trường: <span style={{ fontWeight: 600, color: selectedApp.environment === "Production" ? "#16a34a" : "#d97706" }}>{selectedApp.environment}</span> · ID: {selectedApp.id}
+                  </span>
+                </div>
+              </div>
+
+              {/* Action dropdown */}
+              <div style={{ position: "relative" }}>
+                <button
+                  onClick={e => {
+                    e.stopPropagation();
+                    setOpenAppMenuId(openAppMenuId === selectedApp.id ? null : selectedApp.id);
+                  }}
+                  style={{
+                    background: "transparent",
+                    border: "none",
+                    cursor: "pointer",
+                    fontSize: 18,
+                    color: "#64748b",
+                    padding: "4px 8px",
+                    borderRadius: 4,
+                  }}
+                >
+                  •••
+                </button>
+                {openAppMenuId === selectedApp.id && (
+                  <div
+                    style={{
+                      position: "absolute",
+                      right: 0,
+                      top: "calc(100% + 4px)",
+                      background: "white",
+                      border: "1px solid #e2e8f0",
+                      borderRadius: 8,
+                      boxShadow: "0 10px 25px rgba(0,0,0,0.1)",
+                      width: 140,
+                      zIndex: 30,
+                      padding: "4px 0",
+                    }}
+                    onClick={e => e.stopPropagation()}
+                  >
+                    <button
+                      onClick={() => handleDeleteApp(selectedApp.id, selectedApp.name)}
+                      style={{
+                        width: "100%",
+                        padding: "8px 14px",
+                        textAlign: "left",
+                        background: "none",
+                        border: "none",
+                        fontSize: 13,
+                        color: "#dc2626",
+                        cursor: "pointer",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 8,
+                      }}
+                      onMouseEnter={e => (e.currentTarget.style.background = "#fef2f2")}
+                      onMouseLeave={e => (e.currentTarget.style.background = "none")}
+                    >
+                      🗑 Xoá app
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Other Apps */}
+          {otherApps.length > 0 && (
+            <div>
+              <div style={{ fontSize: 13.5, fontWeight: 600, color: "#000", marginBottom: 12 }}>Các ứng dụng khác của team</div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                {otherApps.map(app => (
+                  <div
+                    key={app.id}
+                    style={{
+                      background: "white",
+                      border: "1px solid #e2e8f0",
+                      borderRadius: 8,
+                      padding: "16px 18px",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      boxShadow: "0 1px 3px rgba(0,0,0,0.02)",
+                    }}
+                  >
+                    <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+                      <span
+                        style={{
+                          width: 36,
+                          height: 36,
+                          borderRadius: 6,
+                          background: app.color || "#64748b",
+                          color: "white",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          fontWeight: 700,
+                          fontSize: 13,
+                        }}
+                      >
+                        {app.short}
+                      </span>
+                      <div>
+                        <strong style={{ fontSize: 14.5, color: "#0f172a", display: "block" }}>{app.name}</strong>
+                        <span style={{ fontSize: 12, color: "#64748b" }}>
+                          Môi trường: <span style={{ fontWeight: 600, color: app.environment === "Production" ? "#16a34a" : "#d97706" }}>{app.environment}</span> · ID: {app.id}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div style={{ display: "flex", alignItems: "center", gap: 10, position: "relative" }}>
+                      <button
+                        onClick={() => {
+                          setSelectedApp(app);
+                          showNotice(`✓ Đã chọn ứng dụng: ${app.name}`);
+                        }}
+                        style={{
+                          background: "#f8fafc",
+                          border: "1px solid #cbd5e1",
+                          borderRadius: 6,
+                          padding: "6px 12px",
+                          fontSize: 12.5,
+                          fontWeight: 600,
+                          color: "#0f172a",
+                          cursor: "pointer",
+                        }}
+                      >
+                        Chuyển app
+                      </button>
+                      <button
+                        onClick={e => {
+                          e.stopPropagation();
+                          setOpenAppMenuId(openAppMenuId === app.id ? null : app.id);
+                        }}
+                        style={{
+                          background: "transparent",
+                          border: "none",
+                          cursor: "pointer",
+                          fontSize: 18,
+                          color: "#64748b",
+                          padding: "4px 8px",
+                          borderRadius: 4,
+                        }}
+                      >
+                        •••
+                      </button>
+                      {openAppMenuId === app.id && (
+                        <div
+                          style={{
+                            position: "absolute",
+                            right: 0,
+                            top: "calc(100% + 4px)",
+                            background: "white",
+                            border: "1px solid #e2e8f0",
+                            borderRadius: 8,
+                            boxShadow: "0 10px 25px rgba(0,0,0,0.1)",
+                            width: 140,
+                            zIndex: 30,
+                            padding: "4px 0",
+                          }}
+                          onClick={e => e.stopPropagation()}
+                        >
+                          <button
+                            onClick={() => handleDeleteApp(app.id, app.name)}
+                            style={{
+                              width: "100%",
+                              padding: "8px 14px",
+                              textAlign: "left",
+                              background: "none",
+                              border: "none",
+                              fontSize: 13,
+                              color: "#dc2626",
+                              cursor: "pointer",
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 8,
+                            }}
+                            onMouseEnter={e => (e.currentTarget.style.background = "#fef2f2")}
+                            onMouseLeave={e => (e.currentTarget.style.background = "none")}
+                          >
+                            🗑 Xoá app
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function InviteMemberScreen({
+  selectedTeam,
+  onInviteMember,
+  onCancel,
+  showNotice,
+}: {
+  selectedTeam: TeamData;
+  onInviteMember: (member: TeamMember) => void;
+  onCancel: () => void;
+  showNotice: (msg: string) => void;
+}) {
+  const [email, setEmail] = useState("");
+  const [role, setRole] = useState<string>("Thành viên");
+  const [permissions, setPermissions] = useState<PermissionKey[]>(roleDefaultPermissions["Thành viên"]);
+
+  function handleRoleChange(newRole: string) {
+    setRole(newRole);
+    if (roleDefaultPermissions[newRole]) {
+      setPermissions(roleDefaultPermissions[newRole]);
+    }
+  }
+
+  function togglePermission(key: PermissionKey) {
+    setPermissions(prev => {
+      const next = prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key];
+      const matched = Object.entries(roleDefaultPermissions).find(([_, list]) =>
+        list.length === next.length && list.every(k => next.includes(k))
+      );
+      if (matched) {
+        setRole(matched[0]);
+      } else {
+        setRole("Tùy chỉnh");
+      }
+      return next;
+    });
+  }
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!email.trim()) {
+      showNotice("Vui lòng nhập địa chỉ email");
+      return;
+    }
+    const derivedName = email.split("@")[0].replace(/[._-]/g, " ").replace(/\b\w/g, l => l.toUpperCase());
+    const mappedRole: TeamMember["role"] =
+      role === "Quản trị viên" ? "ADMIN" : role === "Nhà phát triển" ? "DEVELOPER" : "MEMBER";
+
+    const newM: TeamMember = {
+      id: `m_${Date.now()}`,
+      name: derivedName || "Thành viên mới",
+      email: email.trim(),
+      phone: "09" + Math.floor(10000000 + Math.random() * 90000000),
+      status: "ACTIVE",
+      role: mappedRole,
+    };
+    onInviteMember(newM);
+  }
+
+  const hasPerm = (k: PermissionKey) => permissions.includes(k);
+
+  return (
+    <div style={{ maxWidth: 840, padding: "10px 0 40px" }}>
+      <button
+        type="button"
+        onClick={onCancel}
+        style={{
+          background: "none",
+          border: "none",
+          fontSize: 13.5,
+          fontWeight: 600,
+          color: "#64748b",
+          cursor: "pointer",
+          display: "inline-flex",
+          alignItems: "center",
+          gap: 6,
+          marginBottom: 20,
+          padding: 0,
+        }}
+      >
+        Quay lại
+      </button>
+
+      <h1 style={{ fontSize: 24, fontWeight: 700, margin: "0 0 10px 0", color: "#000" }}>Mời thành viên mới</h1>
+      <p style={{ fontSize: 13.5, color: "#334155", lineHeight: 1.6, margin: "0 0 28px 0" }}>
+        Nhập địa chỉ email của người được mời và vai trò của họ, và hệ thống sẽ tự động gửi thư mời họ tham gia vào team và đóng góp vào thành công của team bạn
+      </p>
+
+      <form onSubmit={handleSubmit}>
+        {/* Top row: Email & Role */}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 280px", gap: 16, marginBottom: 24 }}>
+          {/* Email input */}
+          <div>
+            <div style={{ background: "white", border: "1px solid #d1d5db", borderRadius: 6, padding: "8px 12px", height: 56, boxSizing: "border-box", display: "flex", flexDirection: "column", justifyContent: "center" }}>
+              <label style={{ fontSize: 11.5, color: "#64748b", fontWeight: 500, marginBottom: 2 }}>Email *</label>
+              <input
+                type="email"
+                required
+                autoFocus
+                placeholder="Email của người được mời"
+                value={email}
+                onChange={e => setEmail(e.target.value)}
+                style={{
+                  width: "100%",
+                  border: "none",
+                  outline: "none",
+                  fontSize: 14,
+                  fontWeight: 500,
+                  color: "#0f172a",
+                  padding: 0,
+                  background: "transparent",
+                }}
+              />
+            </div>
+            <div style={{ fontSize: 11.5, color: "#64748b", marginTop: 6, paddingLeft: 2 }}>Email của người được mời</div>
+          </div>
+
+          {/* Role selector */}
+          <div>
+            <div style={{ background: "white", border: "1px solid #d1d5db", borderRadius: 6, padding: "8px 12px", height: 56, boxSizing: "border-box", position: "relative", display: "flex", flexDirection: "column", justifyContent: "center" }}>
+              <label style={{ fontSize: 11.5, color: "#64748b", fontWeight: 500, marginBottom: 2 }}>Vai trò</label>
+              <select
+                value={role}
+                onChange={e => handleRoleChange(e.target.value)}
+                style={{
+                  width: "100%",
+                  border: "none",
+                  outline: "none",
+                  fontSize: 14,
+                  fontWeight: 500,
+                  color: "#0f172a",
+                  padding: 0,
+                  background: "transparent",
+                  cursor: "pointer",
+                }}
+              >
+                <option value="Thành viên">Thành viên</option>
+                <option value="Nhà phát triển">Nhà phát triển</option>
+                <option value="Quản trị viên">Quản trị viên</option>
+                <option value="Tùy chỉnh">Tùy chỉnh</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        {/* Section 1: Quyền chung */}
+        <div style={{ marginBottom: 26 }}>
+          <div style={{ fontSize: 14.5, fontWeight: 700, color: "#000", marginBottom: 14 }}>Quyền chung</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+            {/* Item 1 */}
+            <label style={{ display: "grid", gridTemplateColumns: "24px 220px 1fr", alignItems: "center", cursor: "pointer" }}>
+              <input
+                type="checkbox"
+                checked={hasPerm("view_secret")}
+                onChange={() => togglePermission("view_secret")}
+                style={{ width: 16, height: 16, cursor: "pointer", accentColor: "#0f172a" }}
+              />
+              <span style={{ fontSize: 13.5, fontWeight: 500, color: "#000" }}>Xem khóa bí mật</span>
+              <span style={{ fontSize: 13.5, color: "#334155" }}>Cho phép xem khóa bí mật của ứng dụng</span>
+            </label>
+
+            {/* Item 2 */}
+            <label style={{ display: "grid", gridTemplateColumns: "24px 220px 1fr", alignItems: "center", cursor: "pointer" }}>
+              <input
+                type="checkbox"
+                checked={hasPerm("manage_app")}
+                onChange={() => togglePermission("manage_app")}
+                style={{ width: 16, height: 16, cursor: "pointer", accentColor: "#0f172a" }}
+              />
+              <span style={{ fontSize: 13.5, fontWeight: 500, color: "#000" }}>Quản lý ứng dụng</span>
+              <span style={{ fontSize: 13.5, color: "#334155" }}>Cho phép chỉnh sửa thông tin và cấu hình của ứng dụng</span>
+            </label>
+          </div>
+        </div>
+
+        {/* Section 2: Quyền truy cập nhật ký (log) */}
+        <div style={{ marginBottom: 26 }}>
+          <div style={{ fontSize: 14.5, fontWeight: 700, color: "#000", marginBottom: 14 }}>Quyền truy cập nhật ký (log)</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+            {/* Item 1 */}
+            <label style={{ display: "grid", gridTemplateColumns: "24px 220px 1fr", alignItems: "center", cursor: "pointer" }}>
+              <input
+                type="checkbox"
+                checked={hasPerm("view_request_log")}
+                onChange={() => togglePermission("view_request_log")}
+                style={{ width: 16, height: 16, cursor: "pointer", accentColor: "#0f172a" }}
+              />
+              <span style={{ fontSize: 13.5, fontWeight: 500, color: "#000" }}>Xem Request Log</span>
+              <span style={{ fontSize: 13.5, color: "#334155" }}>Cho phép truy cập chi tiết các bản ghi yêu cầu (Request Log)</span>
+            </label>
+
+            {/* Item 2 */}
+            <label style={{ display: "grid", gridTemplateColumns: "24px 220px 1fr", alignItems: "center", cursor: "pointer" }}>
+              <input
+                type="checkbox"
+                checked={hasPerm("view_webhook_log")}
+                onChange={() => togglePermission("view_webhook_log")}
+                style={{ width: 16, height: 16, cursor: "pointer", accentColor: "#0f172a" }}
+              />
+              <span style={{ fontSize: 13.5, fontWeight: 500, color: "#000" }}>Xem Webhook Log</span>
+              <span style={{ fontSize: 13.5, color: "#334155" }}>Cho phép truy cập chi tiết các bản ghi webhook</span>
+            </label>
+
+            {/* Item 3 */}
+            <label style={{ display: "grid", gridTemplateColumns: "24px 220px 1fr", alignItems: "center", cursor: "pointer" }}>
+              <input
+                type="checkbox"
+                checked={hasPerm("view_link_log")}
+                onChange={() => togglePermission("view_link_log")}
+                style={{ width: 16, height: 16, cursor: "pointer", accentColor: "#0f172a" }}
+              />
+              <span style={{ fontSize: 13.5, fontWeight: 500, color: "#000" }}>Xem Link Log</span>
+              <span style={{ fontSize: 13.5, color: "#334155" }}>Cho phép truy cập chi tiết các bản ghi liên kết (Link Log)</span>
+            </label>
+          </div>
+        </div>
+
+        {/* Section 3: Quyền API */}
+        <div style={{ marginBottom: 36 }}>
+          <div style={{ fontSize: 14.5, fontWeight: 700, color: "#000", marginBottom: 14 }}>Quyền API</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+            {/* Item 1 */}
+            <label style={{ display: "grid", gridTemplateColumns: "24px 220px 1fr", alignItems: "center", cursor: "pointer" }}>
+              <input
+                type="checkbox"
+                checked={hasPerm("manage_redirect_uri")}
+                onChange={() => togglePermission("manage_redirect_uri")}
+                style={{ width: 16, height: 16, cursor: "pointer", accentColor: "#0f172a" }}
+              />
+              <span style={{ fontSize: 13.5, fontWeight: 500, color: "#000" }}>Quản lý Redirect URI</span>
+              <span style={{ fontSize: 13.5, color: "#334155" }}>Toàn quyền thêm, sửa hoặc xóa Redirect URI</span>
+            </label>
+
+            {/* Item 2 */}
+            <label style={{ display: "grid", gridTemplateColumns: "24px 220px 1fr", alignItems: "center", cursor: "pointer", paddingLeft: 18 }}>
+              <input
+                type="checkbox"
+                checked={hasPerm("view_redirect_uri")}
+                onChange={() => togglePermission("view_redirect_uri")}
+                style={{ width: 16, height: 16, cursor: "pointer", accentColor: "#0f172a" }}
+              />
+              <span style={{ fontSize: 13.5, fontWeight: 500, color: "#000" }}>Xem Redirect URI</span>
+              <span style={{ fontSize: 13.5, color: "#334155" }}>Chỉ được xem danh sách Redirect URI, không được chỉnh sửa</span>
+            </label>
+          </div>
+        </div>
+
+        {/* Submit button */}
+        <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 12 }}>
+          <button
+            type="submit"
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 8,
+              height: "38px",
+              padding: "0 18px",
+              background: "#1e293b",
+              color: "white",
+              border: "none",
+              borderRadius: 6,
+              fontSize: 13.5,
+              fontWeight: 600,
+              cursor: "pointer",
+              transition: "background 0.15s",
+            }}
+            onMouseEnter={e => (e.currentTarget.style.background = "#0f172a")}
+            onMouseLeave={e => (e.currentTarget.style.background = "#1e293b")}
+          >
+            <span>Mời thành viên</span>
+          </button>
+          <button
+            type="button"
+            onClick={onCancel}
+            style={{
+              height: "38px",
+              padding: "0 16px",
+              background: "white",
+              color: "#64748b",
+              border: "1px solid #cbd5e1",
+              borderRadius: 6,
+              fontSize: 13.5,
+              fontWeight: 600,
+              cursor: "pointer",
+            }}
+          >
+            Hủy
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
+function CreateTeamScreen({
+  onCreateTeam,
+  onCancel,
+  showNotice,
+}: {
+  onCreateTeam: (name: string) => void;
+  onCancel: () => void;
+  showNotice: (msg: string) => void;
+}) {
+  const [teamName, setTeamName] = useState("");
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!teamName.trim()) {
+      showNotice("Vui lòng nhập tên team");
+      return;
+    }
+    onCreateTeam(teamName.trim());
+  }
+
+  return (
+    <div style={{ maxWidth: 640, padding: "10px 0 40px" }}>
+      <button
+        type="button"
+        onClick={onCancel}
+        style={{
+          background: "none",
+          border: "none",
+          fontSize: 13.5,
+          fontWeight: 600,
+          color: "#64748b",
+          cursor: "pointer",
+          display: "inline-flex",
+          alignItems: "center",
+          gap: 6,
+          marginBottom: 20,
+          padding: 0,
+        }}
+      >
+        Quay lại
+      </button>
+
+      <h1 style={{ fontSize: 26, fontWeight: 700, margin: "0 0 12px 0", color: "#000" }}>Tạo một team mới</h1>
+      <p style={{ fontSize: 14, color: "#475569", lineHeight: 1.6, margin: "0 0 32px 0" }}>
+        Một team mới sẽ có thể tạo và xây dựng những ứng dụng mới của team, giúp việc quản lý những ứng dụng trong một team trở nên dễ dàng hơn.
+      </p>
+
+      <form onSubmit={handleSubmit}>
+        <div style={{ background: "white", border: "1px solid #d1d5db", borderRadius: 8, padding: "14px 16px", marginBottom: 6 }}>
+          <label style={{ fontSize: 12.5, color: "#64748b", display: "block", marginBottom: 4 }}>Tên *</label>
+          <input
+            type="text"
+            required
+            autoFocus
+            placeholder="Nhập tên team..."
+            value={teamName}
+            onChange={e => setTeamName(e.target.value)}
+            style={{
+              width: "100%",
+              border: "none",
+              outline: "none",
+              fontSize: 15,
+              fontWeight: 500,
+              color: "#0f172a",
+              padding: 0,
+              boxSizing: "border-box",
+            }}
+          />
+        </div>
+        <div style={{ fontSize: 12, color: "#64748b", marginBottom: 28 }}>
+          Tên của team. Ví dụ: Team 1, PayOS, Team anh Hưng, ...
+        </div>
+
+        <div style={{ fontSize: 13, color: "#334155", lineHeight: 1.5, marginBottom: 18 }}>
+          Bằng cách lựa chọn nút "Tạo team", bạn đã đồng ý với Cas <strong>Điều khoản sử dụng</strong> và <strong>Tuyên bố về quyền riêng tư</strong>
+        </div>
+
+        <button
+          type="submit"
+          style={{
+            width: "100%",
+            height: "46px",
+            background: "#4b5563",
+            color: "white",
+            border: "none",
+            borderRadius: 8,
+            fontSize: 14,
+            fontWeight: 600,
+            cursor: "pointer",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: "0 20px",
+            transition: "background 0.15s",
+          }}
+          onMouseEnter={e => (e.currentTarget.style.background = "#374151")}
+          onMouseLeave={e => (e.currentTarget.style.background = "#4b5563")}
+        >
+          <span>Tạo team</span>
+        </button>
+      </form>
+    </div>
+  );
+}
+
+function CreateAppScreen({
+  currentTeam,
+  onCreateApp,
+  onCancel,
+  showNotice,
+}: {
+  currentTeam: TeamData;
+  onCreateApp: (app: { name: string; description: string; website: string; logo?: string }) => void;
+  onCancel: () => void;
+  showNotice: (msg: string) => void;
+}) {
+  const [appName, setAppName] = useState("");
+  const [appDesc, setAppDesc] = useState("");
+  const [appWebsite, setAppWebsite] = useState("");
+  const [appLogoUploaded, setAppLogoUploaded] = useState(false);
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!appName.trim()) {
+      showNotice("Vui lòng nhập tên ứng dụng");
+      return;
+    }
+    onCreateApp({
+      name: appName.trim(),
+      description: appDesc.trim(),
+      website: appWebsite.trim(),
+      logo: appLogoUploaded ? "uploaded" : undefined,
+    });
+  }
+
+  return (
+    <div style={{ maxWidth: 640, padding: "10px 0 40px" }}>
+      <button
+        type="button"
+        onClick={onCancel}
+        style={{
+          background: "none",
+          border: "none",
+          fontSize: 13.5,
+          fontWeight: 600,
+          color: "#64748b",
+          cursor: "pointer",
+          display: "inline-flex",
+          alignItems: "center",
+          gap: 6,
+          marginBottom: 20,
+          padding: 0,
+        }}
+      >
+        Quay lại
+      </button>
+
+      <h1 style={{ fontSize: 26, fontWeight: 700, margin: "0 0 12px 0", color: "#000" }}>Tạo ứng dụng mới</h1>
+      <p style={{ fontSize: 14, color: "#475569", lineHeight: 1.6, margin: "0 0 32px 0" }}>
+        Một ứng dụng mới sẽ có một cặp client, secret key để các team có thể ứng dụng tích hợp các tính năng
+      </p>
+
+      <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+        {/* Tên ứng dụng */}
+        <div>
+          <div style={{ background: "white", border: "1px solid #d1d5db", borderRadius: 8, padding: "14px 16px", marginBottom: 6 }}>
+            <label style={{ fontSize: 12.5, color: "#64748b", display: "block", marginBottom: 4 }}>Tên ứng dụng *</label>
+            <input
+              type="text"
+              required
+              autoFocus
+              placeholder="Ví dụ: Cas, PayOS, CASSO..."
+              value={appName}
+              onChange={e => setAppName(e.target.value)}
+              style={{
+                width: "100%",
+                border: "none",
+                outline: "none",
+                fontSize: 15,
+                fontWeight: 500,
+                color: "#0f172a",
+                padding: 0,
+                boxSizing: "border-box",
+              }}
+            />
+          </div>
+          <div style={{ fontSize: 12, color: "#64748b" }}>Tên của app. Ví dụ: Cas, PayOS, CASSO, ...</div>
+        </div>
+
+        {/* Mô tả */}
+        <div>
+          <div style={{ background: "white", border: "1px solid #d1d5db", borderRadius: 8, padding: "14px 16px", marginBottom: 6 }}>
+            <label style={{ fontSize: 12.5, color: "#64748b", display: "block", marginBottom: 4 }}>Mô tả *</label>
+            <input
+              type="text"
+              required
+              placeholder="Mô tả đơn giản về ứng dụng"
+              value={appDesc}
+              onChange={e => setAppDesc(e.target.value)}
+              style={{
+                width: "100%",
+                border: "none",
+                outline: "none",
+                fontSize: 15,
+                fontWeight: 500,
+                color: "#0f172a",
+                padding: 0,
+                boxSizing: "border-box",
+              }}
+            />
+          </div>
+          <div style={{ fontSize: 12, color: "#64748b" }}>Mô tả đơn giản về ứng dụng</div>
+        </div>
+
+        {/* Trang web liên quan */}
+        <div>
+          <div style={{ background: "white", border: "1px solid #d1d5db", borderRadius: 8, padding: "14px 16px", marginBottom: 6 }}>
+            <label style={{ fontSize: 12.5, color: "#64748b", display: "block", marginBottom: 4 }}>Trang web liên quan *</label>
+            <input
+              type="text"
+              required
+              placeholder="https://example.com"
+              value={appWebsite}
+              onChange={e => setAppWebsite(e.target.value)}
+              style={{
+                width: "100%",
+                border: "none",
+                outline: "none",
+                fontSize: 15,
+                fontWeight: 500,
+                color: "#0f172a",
+                padding: 0,
+                boxSizing: "border-box",
+              }}
+            />
+          </div>
+          <div style={{ fontSize: 12, color: "#64748b" }}>Website liên quan đến ứng dụng</div>
+        </div>
+
+        {/* Logo */}
+        <div>
+          <div style={{ background: "white", border: "1px solid #d1d5db", borderRadius: 8, padding: "16px", marginBottom: 6 }}>
+            <label style={{ fontSize: 12.5, color: "#64748b", display: "block", marginBottom: 12 }}>Logo</label>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: "12px 0" }}>
+              <label
+                style={{
+                  width: "100%",
+                  textAlign: "center",
+                  padding: "10px 0",
+                  border: "1px solid #cbd5e1",
+                  borderRadius: 6,
+                  cursor: "pointer",
+                  fontSize: 13.5,
+                  fontWeight: 600,
+                  color: "#0f172a",
+                  background: appLogoUploaded ? "#f0fdf4" : "white",
+                  display: "block",
+                }}
+              >
+                {appLogoUploaded ? "✓ Đã tải logo lên" : "Cập nhật"}
+                <input
+                  type="file"
+                  accept="image/png, image/jpeg, image/jpg"
+                  style={{ display: "none" }}
+                  onChange={e => {
+                    if (e.target.files && e.target.files.length > 0) {
+                      setAppLogoUploaded(true);
+                      showNotice("✓ Đã chọn file logo");
+                    }
+                  }}
+                />
+              </label>
+            </div>
+          </div>
+          <div style={{ fontSize: 12, color: "#64748b" }}>Hình ảnh phải có kích thước nhỏ hơn 1MB và file .jpg, .jpeg, .png</div>
+        </div>
+
+        <button
+          type="submit"
+          style={{
+            width: "100%",
+            height: "46px",
+            background: "#4b5563",
+            color: "white",
+            border: "none",
+            borderRadius: 8,
+            fontSize: 14,
+            fontWeight: 600,
+            cursor: "pointer",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: "0 20px",
+            marginTop: 8,
+            transition: "background 0.15s",
+          }}
+          onMouseEnter={e => (e.currentTarget.style.background = "#374151")}
+          onMouseLeave={e => (e.currentTarget.style.background = "#4b5563")}
+        >
+          <span>Tạo ứng dụng</span>
+        </button>
+      </form>
+    </div>
+  );
 }
