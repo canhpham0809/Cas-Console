@@ -149,8 +149,8 @@ const analyticsData: Record<AnalyticsTab, {
     metrics: [
       { label: "Tổng Grant", value: "2.847", unit: "" },
       { label: "Đang hoạt động", value: "2.592", unit: "" },
-      { label: "Thêm mới trong tháng", value: "184", unit: "" },
-      { label: "Đã xoá/dừng trong tháng", value: "3", tone: "danger", unit: "" },
+      { label: "Thêm mới", value: "184", unit: "" },
+      { label: "Đã xoá/dừng", value: "3", tone: "danger", unit: "" },
     ],
     rows: baseRows,
   },
