@@ -19,6 +19,30 @@ type LogRecord = {
   responseBody: string;
 };
 
+type WebhookLog = {
+  id: string;
+  category: string;
+  bank: string;
+  bankLogo?: string;
+  httpStatus: string;
+  webhookName: string;
+  createdAt: string;
+  payload?: string;
+  response?: string;
+};
+
+type LinkLog = {
+  id: string;
+  category: string;
+  bank: string;
+  bankLogo?: string;
+  errorCode: string;
+  errorMessage: string;
+  grantId: string;
+  createdAt: string;
+  detail?: string;
+};
+
 type TeamData = { id: string; name: string; short: string; role: string; apps: AppData[] };
 
 type TeamMember = {
@@ -584,9 +608,29 @@ function usageStatuses(tab: AnalyticsTab) {
 }
 
 const logRecords: LogRecord[] = [
-  { requestId: "req_7qVUAW2ON3vx_hm9", method: "GET", endpoint: "/v2/transactions", scope: "Transaction", grantId: "grt_8L2KP91N", bank: "Techcombank", http: "200", latency: "284 ms", createdAt: "17:04:52 24/07/2026", requestBody: "{\n  \"from\": \"2026-07-01\",\n  \"to\": \"2026-07-24\",\n  \"page\": 1,\n  \"limit\": 50\n}", responseBody: "{\n  \"data\": {\n    \"transactions\": [\n      { \"id\": \"txn_82MP91\", \"amount\": 2450000, \"currency\": \"VND\" }\n    ],\n    \"total\": 128\n  }\n}" },
-  { requestId: "req_OljkRZCSFR1cnaQW", method: "GET", endpoint: "/v2/balance", scope: "Balance", grantId: "grt_4T7MD20Q", bank: "Vietcombank", http: "200", latency: "326 ms", createdAt: "16:42:57 24/07/2026", requestBody: "{\n  \"accountId\": \"acc_4J8K2P\"\n}", responseBody: "{\n  \"data\": {\n    \"available\": 48250000,\n    \"current\": 49500000,\n    \"currency\": \"VND\"\n  }\n}" },
-  { requestId: "req_L0rkB2btr5YGH806", method: "POST", endpoint: "/v2/transfers", scope: "Transfer", grantId: "grt_1A9HC63V", bank: "MB Bank", http: "400", latency: "412 ms", createdAt: "09:21:52 24/07/2026", requestBody: "{\n  \"amount\": -500000,\n  \"toAccount\": \"0123456789\",\n  \"description\": \"Thanh toan hoa don\"\n}", responseBody: "{\n  \"error\": {\n    \"code\": \"INVALID_AMOUNT\",\n    \"message\": \"amount must be greater than zero\",\n    \"field\": \"amount\"\n  }\n}" },
+  { requestId: "req_7qVUAW2ON3vx_hm9", method: "GET", endpoint: "/v2/transactions", scope: "Transaction", grantId: "grt_8L2KP91N", bank: "Techcombank", http: "200", latency: "284 ms", createdAt: "17:04:52 24/07/2026 (+07:00)", requestBody: "{\n  \"from\": \"2026-07-01\",\n  \"to\": \"2026-07-24\",\n  \"page\": 1,\n  \"limit\": 50\n}", responseBody: "{\n  \"data\": {\n    \"transactions\": [\n      { \"id\": \"txn_82MP91\", \"amount\": 2450000, \"currency\": \"VND\" }\n    ],\n    \"total\": 128\n  }\n}" },
+  { requestId: "req_OljkRZCSFR1cnaQW", method: "GET", endpoint: "/v2/balance", scope: "Balance", grantId: "grt_4T7MD20Q", bank: "Vietcombank", http: "200", latency: "326 ms", createdAt: "16:42:57 24/07/2026 (+07:00)", requestBody: "{\n  \"accountId\": \"acc_4J8K2P\"\n}", responseBody: "{\n  \"data\": {\n    \"available\": 48250000,\n    \"current\": 49500000,\n    \"currency\": \"VND\"\n  }\n}" },
+  { requestId: "req_L0rkB2btr5YGH806", method: "POST", endpoint: "/v2/transfers", scope: "Transfer", grantId: "grt_1A9HC63V", bank: "MB Bank", http: "400", latency: "412 ms", createdAt: "09:21:52 24/07/2026 (+07:00)", requestBody: "{\n  \"amount\": -500000,\n  \"toAccount\": \"0123456789\",\n  \"description\": \"Thanh toan hoa don\"\n}", responseBody: "{\n  \"error\": {\n    \"code\": \"INVALID_AMOUNT\",\n    \"message\": \"amount must be greater than zero\",\n    \"field\": \"amount\"\n  }\n}" },
+];
+
+const webhookLogs: WebhookLog[] = [
+  { id: "wh_A1B2C3D4E5", category: "SIGN", bank: "", httpStatus: "200", webhookName: "SIGN", createdAt: "08:08:04 09/09/2026 (+07:00)", payload: "{\n  \"event\": \"sign.completed\",\n  \"grantId\": \"grt_8L2KP91N\"\n}", response: "{\n  \"status\": \"ok\"\n}" },
+  { id: "wh_F6G7H8I9J0", category: "SIGN", bank: "", httpStatus: "200", webhookName: "SIGN", createdAt: "17:30:06 08/09/2026 (+07:00)", payload: "{\n  \"event\": \"sign.completed\",\n  \"grantId\": \"grt_4T7MD20Q\"\n}", response: "{\n  \"status\": \"ok\"\n}" },
+  { id: "wh_K1L2M3N4O5", category: "SIGN", bank: "", httpStatus: "200", webhookName: "SIGN", createdAt: "17:13:19 08/09/2026 (+07:00)", payload: "{\n  \"event\": \"sign.completed\",\n  \"grantId\": \"grt_1A9HC63V\"\n}", response: "{\n  \"status\": \"ok\"\n}" },
+  { id: "wh_P6Q7R8S9T0", category: "SIGN", bank: "", httpStatus: "200", webhookName: "SIGN", createdAt: "15:20:23 08/09/2026 (+07:00)", payload: "{\n  \"event\": \"sign.pending\",\n  \"grantId\": \"grt_7B3KL52P\"\n}", response: "{\n  \"status\": \"ok\"\n}" },
+  { id: "wh_U1V2W3X4Y5", category: "SIGN", bank: "", httpStatus: "200", webhookName: "SIGN", createdAt: "15:15:55 08/09/2026 (+07:00)", payload: "{\n  \"event\": \"sign.rejected\",\n  \"grantId\": \"grt_9C8NM63Q\"\n}", response: "{\n  \"status\": \"ok\"\n}" },
+  { id: "wh_Z6A7B8C9D0", category: "SIGN", bank: "", httpStatus: "200", webhookName: "eSign webhook", createdAt: "14:56:26 07/09/2026 (+07:00)", payload: "{\n  \"event\": \"esign.completed\",\n  \"documentId\": \"doc_3X9PQ\"\n}", response: "{\n  \"status\": \"ok\"\n}" },
+  { id: "wh_E1F2G3H4I5", category: "CONNECT", bank: "Vietcombank", httpStatus: "500", webhookName: "CONNECT", createdAt: "11:42:08 07/09/2026 (+07:00)", payload: "{\n  \"event\": \"connect.granted\",\n  \"grantId\": \"grt_5D2LM91R\"\n}", response: "{\n  \"error\": \"Internal Server Error\"\n}" },
+  { id: "wh_J6K7L8M9N0", category: "CONNECT", bank: "MB Bank", httpStatus: "200", webhookName: "CONNECT", createdAt: "09:15:33 06/09/2026 (+07:00)", payload: "{\n  \"event\": \"connect.revoked\",\n  \"grantId\": \"grt_2E8NP04S\"\n}", response: "{\n  \"status\": \"ok\"\n}" },
+];
+
+const linkLogs: LinkLog[] = [
+  { id: "lnk_A1B2C3D4", category: "LOGIN", bank: "VCB Digibank", errorCode: "SUCCESS", errorMessage: "OK", grantId: "grt_8L2KP91N", createdAt: "08:47:36 03/08/2026 (+07:00)", detail: "{\n  \"sessionId\": \"sess_9K2MP\",\n  \"userId\": \"usr_4A8BC\"\n}" },
+  { id: "lnk_E5F6G7H8", category: "LOGIN", bank: "VCB Digibank", errorCode: "SUCCESS", errorMessage: "OK", grantId: "grt_4T7MD20Q", createdAt: "08:41:29 03/08/2026 (+07:00)", detail: "{\n  \"sessionId\": \"sess_3B7NQ\",\n  \"userId\": \"usr_7C2DE\"\n}" },
+  { id: "lnk_I9J0K1L2", category: "CONNECT", bank: "Techcombank", errorCode: "SUCCESS", errorMessage: "OK", grantId: "grt_1A9HC63V", createdAt: "15:22:11 02/08/2026 (+07:00)", detail: "{\n  \"grantId\": \"grt_1A9HC63V\",\n  \"scopes\": [\"balance\", \"transactions\"]\n}" },
+  { id: "lnk_M3N4O5P6", category: "CONNECT", bank: "MB Bank", errorCode: "USER_CANCEL", errorMessage: "User cancelled the authorization", grantId: "grt_7B3KL52P", createdAt: "14:05:47 02/08/2026 (+07:00)", detail: "{\n  \"reason\": \"user_cancelled\"\n}" },
+  { id: "lnk_Q7R8S9T0", category: "LOGIN", bank: "BIDV SmartBanking", errorCode: "INVALID_OTP", errorMessage: "OTP verification failed", grantId: "grt_9C8NM63Q", createdAt: "11:30:55 01/08/2026 (+07:00)", detail: "{\n  \"attempts\": 3,\n  \"maxAttempts\": 3\n}" },
+  { id: "lnk_U1V2W3X4", category: "RECONNECT", bank: "VCB Digibank", errorCode: "SUCCESS", errorMessage: "OK", grantId: "grt_5D2LM91R", createdAt: "09:18:22 01/08/2026 (+07:00)", detail: "{\n  \"grantId\": \"grt_5D2LM91R\",\n  \"refreshed\": true\n}" },
 ];
 
 type ChartTimeRange = "24h" | "7d" | "jul26" | "jun26" | "may26";
@@ -860,7 +904,7 @@ export default function Home() {
   function runTestApiCall(scope: AnalyticsTab, params: { bank: string; amount?: string; accountName?: string; note?: string }) {
     const reqId = `req_${scope.slice(0, 3).toUpperCase()}${Math.floor(10000 + Math.random() * 90000)}`;
     const now = new Date();
-    const timeStr = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')} ${now.getDate().toString().padStart(2, '0')}/${(now.getMonth() + 1).toString().padStart(2, '0')}/${now.getFullYear()}`;
+    const timeStr = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}:${now.getSeconds().toString().padStart(2, '0')} ${now.getDate().toString().padStart(2, '0')}/${(now.getMonth() + 1).toString().padStart(2, '0')}/${now.getFullYear()} (+07:00)`;
 
     // 1. Add log entry
     const newLog: LogRecord = {
@@ -2314,95 +2358,267 @@ function UsageRecordsTable({ tab, search, onSearch, timeFilter, onTimeFilter, pa
   </div>;
 }
 
+function LogJsonHighlight({ raw }: { raw: string }) {
+  const html = (() => {
+    try {
+      const parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
+      const formatted = JSON.stringify(parsed, null, 2);
+      return formatted
+        .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+        .replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, match => {
+          let style = "color:#fde047;";
+          if (/^"/g.test(match)) style = /:$/.test(match) ? "color:#93c5fd;font-weight:600;" : "color:#86efac;";
+          else if (/true|false/.test(match)) style = "color:#f472b6;font-weight:600;";
+          else if (/null/.test(match)) style = "color:#94a3b8;font-style:italic;";
+          return `<span style="${style}">${match}</span>`;
+        });
+    } catch { return raw; }
+  })();
+  return <pre><code dangerouslySetInnerHTML={{ __html: html }} /></pre>;
+}
+
 function LogsScreen({ logRecordsData, showNotice }: { logRecordsData: LogRecord[]; showNotice: (message: string) => void }) {
+  const [logType, setLogType] = useState<"Request Log" | "Webhook Log" | "Link Log">("Request Log");
   const [query, setQuery] = useState("");
+  const [page, setPage] = useState(1);
+  const PAGE_SIZE = 6;
+
+  // ── Request Log filters ──
   const [route, setRoute] = useState("Tất cả API routes");
   const [responseCode, setResponseCode] = useState("Tất cả response");
   const [timeRange, setTimeRange] = useState("7 ngày qua");
-  const [bank, setBank] = useState("Tất cả ngân hàng");
+  const [reqBank, setReqBank] = useState("Tất cả ngân hàng");
   const [selectedLog, setSelectedLog] = useState<LogRecord | null>(null);
   const [detailTab, setDetailTab] = useState<"request" | "response">("request");
-  const [page, setPage] = useState(1);
 
-  const filtered = logRecordsData.filter(log => {
-    const searchText = `${log.requestId} ${log.grantId} ${log.endpoint} ${log.bank} ${log.scope}`.toLowerCase();
-    return searchText.includes(query.toLowerCase())
+  // ── Webhook Log filters ──
+  const [whCategory, setWhCategory] = useState("Tất cả phân loại");
+  const [whStatus, setWhStatus] = useState("Tất cả trạng thái");
+  const [whTimeRange, setWhTimeRange] = useState("7 ngày qua");
+  const [whBank, setWhBank] = useState("Tất cả tổ chức");
+  const [selectedWh, setSelectedWh] = useState<WebhookLog | null>(null);
+  const [whDetailTab, setWhDetailTab] = useState<"payload" | "response">("payload");
+
+  // ── Link Log filters ──
+  const [lnkErrorCode, setLnkErrorCode] = useState("Tất cả mã lỗi");
+  const [lnkCategory, setLnkCategory] = useState("Tất cả phân loại");
+  const [lnkTimeRange, setLnkTimeRange] = useState("7 ngày qua");
+  const [lnkBank, setLnkBank] = useState("Tất cả tổ chức");
+  const [selectedLnk, setSelectedLnk] = useState<LinkLog | null>(null);
+
+  function changeType(t: "Request Log" | "Webhook Log" | "Link Log") {
+    setLogType(t); setQuery(""); setPage(1);
+  }
+
+  // ── Filtered data ──
+  const filteredReq = logRecordsData.filter(log => {
+    const text = `${log.requestId} ${log.grantId} ${log.endpoint} ${log.bank} ${log.scope}`.toLowerCase();
+    return text.includes(query.toLowerCase())
       && (route === "Tất cả API routes" || log.endpoint === route)
       && (responseCode === "Tất cả response" || (responseCode === "2xx Thành công" ? log.http.startsWith("2") : !log.http.startsWith("2")))
-      && (bank === "Tất cả ngân hàng" || log.bank === bank);
+      && (reqBank === "Tất cả ngân hàng" || log.bank === reqBank);
   });
-  const pageSize = 6;
-  const pageCount = Math.max(1, Math.ceil(filtered.length / pageSize));
+
+  const filteredWh = webhookLogs.filter(wh => {
+    const text = `${wh.id} ${wh.category} ${wh.bank} ${wh.webhookName}`.toLowerCase();
+    return text.includes(query.toLowerCase())
+      && (whCategory === "Tất cả phân loại" || wh.category === whCategory)
+      && (whStatus === "Tất cả trạng thái" || (whStatus === "2xx Thành công" ? wh.httpStatus.startsWith("2") : !wh.httpStatus.startsWith("2")))
+      && (whBank === "Tất cả tổ chức" || wh.bank === whBank);
+  });
+
+  const filteredLnk = linkLogs.filter(lnk => {
+    const text = `${lnk.id} ${lnk.category} ${lnk.bank} ${lnk.grantId} ${lnk.errorCode}`.toLowerCase();
+    return text.includes(query.toLowerCase())
+      && (lnkErrorCode === "Tất cả mã lỗi" || lnk.errorCode === lnkErrorCode)
+      && (lnkCategory === "Tất cả phân loại" || lnk.category === lnkCategory)
+      && (lnkBank === "Tất cả tổ chức" || lnk.bank === lnkBank);
+  });
+
+  const filtered = logType === "Request Log" ? filteredReq : logType === "Webhook Log" ? filteredWh : filteredLnk;
+  const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const currentPage = Math.min(page, pageCount);
-  const visible = filtered.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+  const visibleReq = filteredReq.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE) as LogRecord[];
+  const visibleWh = filteredWh.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE) as WebhookLog[];
+  const visibleLnk = filteredLnk.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE) as LinkLog[];
 
   function resetFilters() {
-    setQuery("");
-    setRoute("Tất cả API routes");
-    setResponseCode("Tất cả response");
-    setTimeRange("7 ngày qua");
-    setBank("Tất cả ngân hàng");
-    setPage(1);
+    setQuery(""); setPage(1);
+    if (logType === "Request Log") { setRoute("Tất cả API routes"); setResponseCode("Tất cả response"); setTimeRange("7 ngày qua"); setReqBank("Tất cả ngân hàng"); }
+    else if (logType === "Webhook Log") { setWhCategory("Tất cả phân loại"); setWhStatus("Tất cả trạng thái"); setWhTimeRange("7 ngày qua"); setWhBank("Tất cả tổ chức"); }
+    else { setLnkErrorCode("Tất cả mã lỗi"); setLnkCategory("Tất cả phân loại"); setLnkTimeRange("7 ngày qua"); setLnkBank("Tất cả tổ chức"); }
   }
 
-  function exportLogs() {
-    const rows = filtered.map(log => [log.requestId, log.method, log.endpoint, log.scope, log.grantId, log.bank, log.http, log.latency, log.createdAt]);
-    const csv = [["Request ID", "Method", "Endpoint", "Scope", "Grant ID", "Ngân hàng", "HTTP", "Latency", "Ngày tạo"], ...rows]
-      .map(columns => columns.map(value => `"${String(value).replaceAll("\"", "\"\"")}"`).join(",")).join("\n");
-    const url = URL.createObjectURL(new Blob([`\uFEFF${csv}`], { type: "text/csv;charset=utf-8" }));
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = "cas-request-logs.csv";
-    link.click();
-    URL.revokeObjectURL(url);
-    showNotice(`Đã xuất ${filtered.length} request logs`);
-  }
+  const searchPlaceholder = logType === "Request Log" ? "Tìm bằng Request ID, Grant ID hoặc endpoint" : logType === "Webhook Log" ? "Tìm kiếm các Webhook Log bằng Grant ID" : "Tìm kiếm các Link Log bằng Grant ID";
+
+  const uniqueWhCategories = [...new Set(webhookLogs.map(w => w.category))];
+  const uniqueWhBanks = [...new Set(webhookLogs.map(w => w.bank).filter(Boolean))];
+  const uniqueLnkErrorCodes = [...new Set(linkLogs.map(l => l.errorCode))];
+  const uniqueLnkCategories = [...new Set(linkLogs.map(l => l.category))];
+  const uniqueLnkBanks = [...new Set(linkLogs.map(l => l.bank))];
 
   return <section className="logs-screen">
+    {/* Search row */}
     <div className="logs-search-row">
-      <select aria-label="Loại log"><option>Request Log</option><option>Webhook Log</option></select>
-      <label><input value={query} onChange={e => { setQuery(e.target.value); setPage(1); }} placeholder="Tìm bằng Request ID, Grant ID hoặc endpoint" /></label>
-    </div>
-    <div className="logs-filter-row">
-      <div>
-        <select value={route} onChange={e => { setRoute(e.target.value); setPage(1); }} aria-label="API routes"><option>Tất cả API routes</option>{[...new Set(logRecordsData.map(log => log.endpoint))].map(item => <option key={item}>{item}</option>)}</select>
-        <select value={responseCode} onChange={e => { setResponseCode(e.target.value); setPage(1); }} aria-label="Response code"><option>Tất cả response</option><option>2xx Thành công</option><option>4xx / 5xx Lỗi</option></select>
-        <select value={timeRange} onChange={e => setTimeRange(e.target.value)} aria-label="Thời gian"><option>24 giờ qua</option><option>7 ngày qua</option><option>30 ngày qua</option></select>
-        <select value={bank} onChange={e => { setBank(e.target.value); setPage(1); }} aria-label="Ngân hàng"><option>Tất cả ngân hàng</option>{[...new Set(logRecordsData.map(log => log.bank))].map(item => <option key={item}>{item}</option>)}</select>
+      <div className="logs-type-select-wrap">
+        <select
+          aria-label="Loại log"
+          value={logType}
+          onChange={e => changeType(e.target.value as "Request Log" | "Webhook Log" | "Link Log")}
+        >
+          <option>Request Log</option>
+          <option>Webhook Log</option>
+          <option>Link Log</option>
+        </select>
       </div>
-      <button className="logs-reset" onClick={resetFilters} title="Đặt lại bộ lọc" style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 36, height: 36, padding: 0, borderRadius: 6, cursor: "pointer", color: "#4b5563" }}>
-        <RotateIcon size={18} />
-      </button>
-      <button className="logs-export" onClick={exportLogs}>Xuất logs</button>
-    </div>
-    <div className="logs-table-wrap">
-      <table className="logs-table">
-        <thead>
-          <tr>
-            <th style={{ width: "240px" }}>REQUEST ID</th>
-            <th style={{ width: "160px" }}>NGÂN HÀNG</th>
-            <th style={{ width: "150px" }}>TRẠNG THÁI HTTP</th>
-            <th style={{ width: "220px" }}>ĐƯỜNG DẪN REQUEST</th>
-            <th style={{ width: "180px" }}>GRANT ID</th>
-            <th>NGÀY TẠO</th>
-          </tr>
-        </thead>
-        <tbody>{visible.map(log => <tr key={log.requestId} tabIndex={0} onClick={() => { setSelectedLog(log); setDetailTab("request"); }} onKeyDown={e => { if (e.key === "Enter" || e.key === " ") setSelectedLog(log); }}>
-          <td><strong style={{ color: "#000", fontSize: 13.5, fontFamily: "monospace" }}>{log.requestId}</strong></td>
-          <td style={{ color: "#000" }}>{log.bank}</td>
-          <td><span className={`log-http ${log.http.startsWith("2") ? "success" : "failed"}`}>{log.http.startsWith("2") ? "✓" : "×"} {log.http}</span></td>
-          <td><code style={{ color: "#000", fontFamily: "monospace", fontSize: 13 }}>{log.endpoint}</code></td>
-          <td><code style={{ color: "#000", fontFamily: "monospace", fontSize: 13 }}>{log.grantId}</code></td>
-          <td style={{ color: "#000" }}>{log.createdAt}</td>
-        </tr>)}</tbody>
-      </table>
-      {visible.length === 0 && <div className="empty-result">Không tìm thấy request log phù hợp.</div>}
-    </div>
-    <div className="logs-pagination">
-      <span>Hiển thị {visible.length} / {filtered.length} logs</span>
-      <div><button disabled={currentPage === 1} onClick={() => setPage(currentPage - 1)}>‹</button>{Array.from({ length: pageCount }, (_, index) => <button className={currentPage === index + 1 ? "active" : ""} key={index} onClick={() => setPage(index + 1)}>{index + 1}</button>)}<button disabled={currentPage === pageCount} onClick={() => setPage(currentPage + 1)}>›</button></div>
+      <label><input value={query} onChange={e => { setQuery(e.target.value); setPage(1); }} placeholder={searchPlaceholder} /></label>
     </div>
 
+    {/* Filter row */}
+    <div className="logs-filter-row">
+      <div>
+        {logType === "Request Log" && <>
+          <select value={route} onChange={e => { setRoute(e.target.value); setPage(1); }} aria-label="API routes">
+            <option>Tất cả API routes</option>
+            {[...new Set(logRecordsData.map(l => l.endpoint))].map(item => <option key={item}>{item}</option>)}
+          </select>
+          <select value={responseCode} onChange={e => { setResponseCode(e.target.value); setPage(1); }} aria-label="Response code">
+            <option>Tất cả response</option><option>2xx Thành công</option><option>4xx / 5xx Lỗi</option>
+          </select>
+          <select value={timeRange} onChange={e => setTimeRange(e.target.value)} aria-label="Thời gian">
+            <option>24 giờ qua</option><option>7 ngày qua</option><option>30 ngày qua</option>
+          </select>
+          <select value={reqBank} onChange={e => { setReqBank(e.target.value); setPage(1); }} aria-label="Ngân hàng">
+            <option>Tất cả ngân hàng</option>
+            {[...new Set(logRecordsData.map(l => l.bank))].map(item => <option key={item}>{item}</option>)}
+          </select>
+        </>}
+
+        {logType === "Webhook Log" && <>
+          <select value={whCategory} onChange={e => { setWhCategory(e.target.value); setPage(1); }} aria-label="Phân loại Webhook">
+            <option>Tất cả phân loại</option>
+            {uniqueWhCategories.map(c => <option key={c}>{c}</option>)}
+          </select>
+          <select value={whStatus} onChange={e => { setWhStatus(e.target.value); setPage(1); }} aria-label="Trạng thái Webhook">
+            <option>Tất cả trạng thái</option><option>2xx Thành công</option><option>4xx / 5xx Lỗi</option>
+          </select>
+          <select value={whTimeRange} onChange={e => setWhTimeRange(e.target.value)} aria-label="Ngày Tạo">
+            <option>24 giờ qua</option><option>7 ngày qua</option><option>30 ngày qua</option>
+          </select>
+          <select value={whBank} onChange={e => { setWhBank(e.target.value); setPage(1); }} aria-label="Tổ chức tài chính">
+            <option>Tất cả tổ chức</option>
+            {uniqueWhBanks.map(b => <option key={b}>{b}</option>)}
+          </select>
+        </>}
+
+        {logType === "Link Log" && <>
+          <select value={lnkErrorCode} onChange={e => { setLnkErrorCode(e.target.value); setPage(1); }} aria-label="Mã lỗi">
+            <option>Tất cả mã lỗi</option>
+            {uniqueLnkErrorCodes.map(c => <option key={c}>{c}</option>)}
+          </select>
+          <select value={lnkCategory} onChange={e => { setLnkCategory(e.target.value); setPage(1); }} aria-label="Phân loại">
+            <option>Tất cả phân loại</option>
+            {uniqueLnkCategories.map(c => <option key={c}>{c}</option>)}
+          </select>
+          <select value={lnkTimeRange} onChange={e => setLnkTimeRange(e.target.value)} aria-label="Ngày Tạo">
+            <option>24 giờ qua</option><option>7 ngày qua</option><option>30 ngày qua</option>
+          </select>
+          <select value={lnkBank} onChange={e => { setLnkBank(e.target.value); setPage(1); }} aria-label="Tổ chức tài chính">
+            <option>Tất cả tổ chức</option>
+            {uniqueLnkBanks.map(b => <option key={b}>{b}</option>)}
+          </select>
+        </>}
+      </div>
+      <button className="logs-reset" onClick={resetFilters} title="Đặt lại" style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 36, height: 36, padding: 0, borderRadius: 6, cursor: "pointer", color: "#4b5563", background: "none", border: "1px solid #e2e8f0" }}>
+        <RotateIcon size={18} />
+      </button>
+      <span style={{ fontSize: 13, color: "#64748b", display: "flex", alignItems: "center", gap: 4 }}>Đặt lại</span>
+      <button className="logs-export" style={{ marginLeft: 4 }} onClick={() => showNotice(`Đã xuất ${filtered.length} log(s)`)}>Lọc</button>
+    </div>
+
+    {/* Table */}
+    <div className="logs-table-wrap">
+      {logType === "Request Log" && (
+        <table className="logs-table">
+          <thead><tr>
+            <th style={{ width: 240 }}>REQUEST ID</th>
+            <th style={{ width: 160 }}>NGÂN HÀNG</th>
+            <th style={{ width: 150 }}>TRẠNG THÁI HTTP</th>
+            <th style={{ width: 220 }}>ĐƯỜNG DẪN REQUEST</th>
+            <th style={{ width: 220 }}>NGÀY TẠO</th>
+          </tr></thead>
+          <tbody>{visibleReq.map(log => (
+            <tr key={log.requestId} tabIndex={0} onClick={() => { setSelectedLog(log); setDetailTab("request"); }} onKeyDown={e => { if (e.key === "Enter") setSelectedLog(log); }}>
+              <td><strong style={{ color: "#000", fontSize: 13.5, fontFamily: "monospace" }}>{log.requestId}</strong></td>
+              <td style={{ color: "#000" }}>{log.bank}</td>
+              <td><span className={`log-http ${log.http.startsWith("2") ? "success" : "failed"}`}>{log.http.startsWith("2") ? "✓" : "×"} {log.http}</span></td>
+              <td><code style={{ color: "#000", fontFamily: "monospace", fontSize: 13 }}>{log.endpoint}</code></td>
+              <td style={{ color: "#000", fontSize: 12, whiteSpace: "nowrap" }}>{log.createdAt}</td>
+            </tr>
+          ))}</tbody>
+        </table>
+      )}
+
+      {logType === "Webhook Log" && (
+        <table className="logs-table">
+          <thead><tr>
+            <th style={{ width: 40 }} />
+            <th style={{ width: 140 }}>PHÂN LOẠI</th>
+            <th style={{ width: 200 }}>TỔ CHỨC TÀI CHÍNH</th>
+            <th style={{ width: 150 }}>TRẠNG THÁI HTTP</th>
+            <th style={{ width: 220 }}>WEBHOOK</th>
+            <th style={{ width: 220 }}>NGÀY TẠO</th>
+          </tr></thead>
+          <tbody>{visibleWh.map(wh => (
+            <tr key={wh.id} tabIndex={0} onClick={() => { setSelectedWh(wh); setWhDetailTab("payload"); }} onKeyDown={e => { if (e.key === "Enter") setSelectedWh(wh); }}>
+              <td style={{ color: "#94a3b8", fontSize: 11 }}>›</td>
+              <td style={{ color: "#000", fontWeight: 500 }}>{wh.category}</td>
+              <td style={{ color: "#000" }}>{wh.bank ? <span className="bank-name"><i className={`bank-mark bank-${wh.bank.toLowerCase().replaceAll(" ", "-")}`}>{wh.bank.slice(0, 2).toUpperCase()}</i>{wh.bank}</span> : "—"}</td>
+              <td><span className={`log-http ${wh.httpStatus.startsWith("2") ? "success" : "failed"}`}>{wh.httpStatus.startsWith("2") ? "✓" : "×"} {wh.httpStatus}</span></td>
+              <td style={{ color: "#000" }}>{wh.webhookName}</td>
+              <td style={{ color: "#000", fontSize: 12, whiteSpace: "nowrap" }}>{wh.createdAt}</td>
+            </tr>
+          ))}</tbody>
+        </table>
+      )}
+
+      {logType === "Link Log" && (
+        <table className="logs-table">
+          <thead><tr>
+            <th style={{ width: 40 }} />
+            <th style={{ width: 140 }}>PHÂN LOẠI</th>
+            <th style={{ width: 200 }}>TỔ CHỨC TÀI CHÍNH</th>
+            <th style={{ width: 150 }}>MÃ LỖI</th>
+            <th style={{ width: 280 }}>TIN NHẮN MÃ LỖI</th>
+            <th style={{ width: 220 }}>NGÀY TẠO</th>
+          </tr></thead>
+          <tbody>{visibleLnk.map(lnk => (
+            <tr key={lnk.id} tabIndex={0} onClick={() => setSelectedLnk(lnk)} onKeyDown={e => { if (e.key === "Enter") setSelectedLnk(lnk); }}>
+              <td style={{ color: "#94a3b8", fontSize: 11 }}>›</td>
+              <td style={{ color: "#000", fontWeight: 500 }}>{lnk.category}</td>
+              <td style={{ color: "#000" }}>{lnk.bank ? <span className="bank-name"><i className={`bank-mark bank-${lnk.bank.toLowerCase().replaceAll(" ", "-")}`}>{lnk.bank.slice(0, 2).toUpperCase()}</i>{lnk.bank}</span> : "—"}</td>
+              <td><span className={`log-http ${lnk.errorCode === "SUCCESS" ? "success" : "failed"}`}>{lnk.errorCode}</span></td>
+              <td style={{ color: "#000" }}>{lnk.errorMessage}</td>
+              <td style={{ color: "#000", fontSize: 12, whiteSpace: "nowrap" }}>{lnk.createdAt}</td>
+            </tr>
+          ))}</tbody>
+        </table>
+      )}
+
+      {filtered.length === 0 && <div className="empty-result">Không tìm thấy log phù hợp.</div>}
+    </div>
+
+    {/* Pagination */}
+    <div className="logs-pagination">
+      <span>Hiển thị {filtered.length === 0 ? 0 : (currentPage - 1) * PAGE_SIZE + 1}–{Math.min(currentPage * PAGE_SIZE, filtered.length)} / {filtered.length} logs</span>
+      <div>
+        <button title="Trang đầu" disabled={currentPage === 1} onClick={() => setPage(1)}>«</button>
+        <button disabled={currentPage === 1} onClick={() => setPage(currentPage - 1)}>‹</button>
+        <button disabled={currentPage === pageCount} onClick={() => setPage(currentPage + 1)}>›</button>
+      </div>
+    </div>
+
+    {/* Request Log Detail Drawer */}
     {selectedLog && <div className="log-drawer-backdrop" onMouseDown={() => setSelectedLog(null)}>
       <aside className="log-drawer" role="dialog" aria-modal="true" aria-labelledby="log-detail-title" onMouseDown={e => e.stopPropagation()}>
         <div className="log-drawer-heading"><div><span>REQUEST LOG</span><h2 id="log-detail-title">{selectedLog.requestId}</h2></div><button aria-label="Đóng" onClick={() => setSelectedLog(null)}>×</button></div>
@@ -2417,48 +2633,15 @@ function LogsScreen({ logRecordsData, showNotice }: { logRecordsData: LogRecord[
           <div><dt>Scope</dt><dd>{selectedLog.scope}</dd></div>
           <div><dt>Ngân hàng</dt><dd>{selectedLog.bank}</dd></div>
         </dl>
-        <div className="log-detail-tabs"><button className={detailTab === "request" ? "active" : ""} onClick={() => setDetailTab("request")}>Request</button><button className={detailTab === "response" ? "active" : ""} onClick={() => setDetailTab("response")}>Response</button></div>
+        <div className="log-detail-tabs">
+          <button className={detailTab === "request" ? "active" : ""} onClick={() => setDetailTab("request")}>Request</button>
+          <button className={detailTab === "response" ? "active" : ""} onClick={() => setDetailTab("response")}>Response</button>
+        </div>
         <div className="log-code-section">
-          <div>
-            <span>{detailTab === "request" ? "Request body" : "Response body"}</span>
-            <button onClick={() => { navigator.clipboard?.writeText(detailTab === "request" ? selectedLog.requestBody : selectedLog.responseBody); showNotice("Đã sao chép JSON"); }}>
-              Sao chép
-            </button>
+          <div><span>{detailTab === "request" ? "Request body" : "Response body"}</span>
+            <button onClick={() => { navigator.clipboard?.writeText(detailTab === "request" ? selectedLog.requestBody : selectedLog.responseBody); showNotice("Đã sao chép JSON"); }}>Sao chép</button>
           </div>
-          <pre>
-            <code
-              dangerouslySetInnerHTML={{
-                __html: (() => {
-                  try {
-                    const raw = detailTab === "request" ? selectedLog.requestBody : selectedLog.responseBody;
-                    const parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
-                    const formatted = JSON.stringify(parsed, null, 2);
-                    return formatted
-                      .replace(/&/g, "&amp;")
-                      .replace(/</g, "&lt;")
-                      .replace(/>/g, "&gt;")
-                      .replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, match => {
-                        let style = "color: #fde047;";
-                        if (/^"/.test(match)) {
-                          if (/:$/.test(match)) {
-                            style = "color: #93c5fd; font-weight: 600;";
-                          } else {
-                            style = "color: #86efac;";
-                          }
-                        } else if (/true|false/.test(match)) {
-                          style = "color: #f472b6; font-weight: 600;";
-                        } else if (/null/.test(match)) {
-                          style = "color: #94a3b8; font-style: italic;";
-                        }
-                        return `<span style="${style}">${match}</span>`;
-                      });
-                  } catch {
-                    return detailTab === "request" ? selectedLog.requestBody : selectedLog.responseBody;
-                  }
-                })(),
-              }}
-            />
-          </pre>
+          <LogJsonHighlight raw={detailTab === "request" ? selectedLog.requestBody : selectedLog.responseBody} />
         </div>
         <div className="log-headers">
           <h3>Headers</h3>
@@ -2466,6 +2649,59 @@ function LogsScreen({ logRecordsData, showNotice }: { logRecordsData: LogRecord[
           <div><span>x-client-id</span><code>33d42bee-••••-••••-••••-51e958e065ae</code></div>
           <div><span>content-type</span><code>application/json</code></div>
         </div>
+      </aside>
+    </div>}
+
+    {/* Webhook Log Detail Drawer */}
+    {selectedWh && <div className="log-drawer-backdrop" onMouseDown={() => setSelectedWh(null)}>
+      <aside className="log-drawer" role="dialog" aria-modal="true" aria-labelledby="wh-detail-title" onMouseDown={e => e.stopPropagation()}>
+        <div className="log-drawer-heading"><div><span>WEBHOOK LOG</span><h2 id="wh-detail-title">{selectedWh.webhookName}</h2></div><button aria-label="Đóng" onClick={() => setSelectedWh(null)}>×</button></div>
+        <div className="log-overview">
+          <div><span>Trạng thái HTTP</span><strong><i className={selectedWh.httpStatus.startsWith("2") ? "ok" : "error"} />HTTP {selectedWh.httpStatus}</strong></div>
+          <div><span>Phân loại</span><strong>{selectedWh.category}</strong></div>
+          <div><span>Ngày tạo</span><strong>{selectedWh.createdAt}</strong></div>
+        </div>
+        <dl className="log-metadata">
+          <div><dt>Webhook</dt><dd>{selectedWh.webhookName}</dd></div>
+          {selectedWh.bank && <div><dt>Tổ chức tài chính</dt><dd>{selectedWh.bank}</dd></div>}
+          <div><dt>ID</dt><dd><code>{selectedWh.id}</code></dd></div>
+        </dl>
+        <div className="log-detail-tabs">
+          <button className={whDetailTab === "payload" ? "active" : ""} onClick={() => setWhDetailTab("payload")}>Payload</button>
+          <button className={whDetailTab === "response" ? "active" : ""} onClick={() => setWhDetailTab("response")}>Response</button>
+        </div>
+        <div className="log-code-section">
+          <div><span>{whDetailTab === "payload" ? "Payload" : "Response"}</span>
+            <button onClick={() => { navigator.clipboard?.writeText(whDetailTab === "payload" ? (selectedWh.payload ?? "") : (selectedWh.response ?? "")); showNotice("Đã sao chép JSON"); }}>Sao chép</button>
+          </div>
+          <LogJsonHighlight raw={whDetailTab === "payload" ? (selectedWh.payload ?? "{}") : (selectedWh.response ?? "{}")} />
+        </div>
+      </aside>
+    </div>}
+
+    {/* Link Log Detail Drawer */}
+    {selectedLnk && <div className="log-drawer-backdrop" onMouseDown={() => setSelectedLnk(null)}>
+      <aside className="log-drawer" role="dialog" aria-modal="true" aria-labelledby="lnk-detail-title" onMouseDown={e => e.stopPropagation()}>
+        <div className="log-drawer-heading"><div><span>LINK LOG</span><h2 id="lnk-detail-title">{selectedLnk.category}</h2></div><button aria-label="Đóng" onClick={() => setSelectedLnk(null)}>×</button></div>
+        <div className="log-overview">
+          <div><span>Mã lỗi</span><strong><i className={selectedLnk.errorCode === "SUCCESS" ? "ok" : "error"} />{selectedLnk.errorCode}</strong></div>
+          <div><span>Ngân hàng</span><strong>{selectedLnk.bank}</strong></div>
+          <div><span>Ngày tạo</span><strong>{selectedLnk.createdAt}</strong></div>
+        </div>
+        <dl className="log-metadata">
+          <div><dt>Phân loại</dt><dd>{selectedLnk.category}</dd></div>
+          <div><dt>Grant ID</dt><dd><code>{selectedLnk.grantId}</code></dd></div>
+          <div><dt>Tin nhắn</dt><dd>{selectedLnk.errorMessage}</dd></div>
+          <div><dt>ID</dt><dd><code>{selectedLnk.id}</code></dd></div>
+        </dl>
+        {selectedLnk.detail && (
+          <div className="log-code-section">
+            <div><span>Chi tiết</span>
+              <button onClick={() => { navigator.clipboard?.writeText(selectedLnk.detail ?? ""); showNotice("Đã sao chép"); }}>Sao chép</button>
+            </div>
+            <LogJsonHighlight raw={selectedLnk.detail} />
+          </div>
+        )}
       </aside>
     </div>}
   </section>;
