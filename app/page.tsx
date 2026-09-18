@@ -7,16 +7,28 @@ type AnalyticsTab = "Connection" | "Transaction" | "Identity" | "Balance" | "QRP
 type DetailRow = { requestId: string; grant: string; user: string; bank: string; scopes: string; calls: string; status: string; last: string; cost: string; endpoint: string; http: string; latency: string; webhook?: string };
 type LogRecord = {
   requestId: string;
-  method: "GET" | "POST";
   endpoint: string;
   scope: string;
-  grantId: string;
+  grantId: string | null;
   bank: string;
   http: string;
   latency: string;
   createdAt: string;
   requestBody: string;
   responseBody: string;
+  // Raw fields as returned by the log API
+  uuid: string;
+  requestUri: string;
+  requestParams: string | null;
+  requestQueryParams: string | null;
+  responseHttpStatus: number;
+  responseCode: string;
+  responseMessage: string;
+  responseData: string | null;
+  responseTimeMs: number;
+  fiServiceId: string | number | null;
+  creationTime: number;
+  fiService: { name: string; logo: string; type: string } | null;
 };
 
 type WebhookLog = {
@@ -607,11 +619,132 @@ function usageStatuses(tab: AnalyticsTab) {
   return index < 0 ? [] : [...new Set(data.rows.map(row => row[index]))];
 }
 
-const logRecords: LogRecord[] = [
-  { requestId: "req_7qVUAW2ON3vx_hm9", method: "GET", endpoint: "/v2/transactions", scope: "Transaction", grantId: "grt_8L2KP91N", bank: "Techcombank", http: "200", latency: "284 ms", createdAt: "17:04:52 24/07/2026 (+07:00)", requestBody: "{\n  \"from\": \"2026-07-01\",\n  \"to\": \"2026-07-24\",\n  \"page\": 1,\n  \"limit\": 50\n}", responseBody: "{\n  \"data\": {\n    \"transactions\": [\n      { \"id\": \"txn_82MP91\", \"amount\": 2450000, \"currency\": \"VND\" }\n    ],\n    \"total\": 128\n  }\n}" },
-  { requestId: "req_OljkRZCSFR1cnaQW", method: "GET", endpoint: "/v2/balance", scope: "Balance", grantId: "grt_4T7MD20Q", bank: "Vietcombank", http: "200", latency: "326 ms", createdAt: "16:42:57 24/07/2026 (+07:00)", requestBody: "{\n  \"accountId\": \"acc_4J8K2P\"\n}", responseBody: "{\n  \"data\": {\n    \"available\": 48250000,\n    \"current\": 49500000,\n    \"currency\": \"VND\"\n  }\n}" },
-  { requestId: "req_L0rkB2btr5YGH806", method: "POST", endpoint: "/v2/transfers", scope: "Transfer", grantId: "grt_1A9HC63V", bank: "MB Bank", http: "400", latency: "412 ms", createdAt: "09:21:52 24/07/2026 (+07:00)", requestBody: "{\n  \"amount\": -500000,\n  \"toAccount\": \"0123456789\",\n  \"description\": \"Thanh toan hoa don\"\n}", responseBody: "{\n  \"error\": {\n    \"code\": \"INVALID_AMOUNT\",\n    \"message\": \"amount must be greater than zero\",\n    \"field\": \"amount\"\n  }\n}" },
+// Derives the raw fields as returned by the log API (uuid, request_uri, request_params, ...)
+// from the friendlier seed fields used across the console's UI.
+function deriveRawLogFields(seed: {
+  requestId: string;
+  endpoint: string;
+  http: string;
+  latency: string;
+  createdAt: string;
+  requestBody: string;
+  responseBody: string;
+}): Pick<
+  LogRecord,
+  "uuid" | "requestUri" | "requestParams" | "requestQueryParams" | "responseHttpStatus" | "responseCode" | "responseMessage" | "responseData" | "responseTimeMs" | "fiServiceId" | "creationTime"
+> {
+  const responseHttpStatus = parseInt(seed.http, 10) || 200;
+  const isSuccess = responseHttpStatus >= 200 && responseHttpStatus < 300;
+  let responseCode = isSuccess ? "OK" : "E_BAD_REQUEST";
+  let responseMessage = isSuccess ? "OK" : "Yêu cầu không hợp lệ";
+  try {
+    const parsedResponse = JSON.parse(seed.responseBody);
+    if (!isSuccess && parsedResponse?.error) {
+      responseCode = parsedResponse.error.code || responseCode;
+      responseMessage = parsedResponse.error.message || responseMessage;
+    }
+  } catch {
+    // responseBody isn't JSON — keep the defaults above
+  }
+  return {
+    uuid: seed.requestId.replace(/^req_/, ""),
+    requestUri: seed.endpoint,
+    requestParams: seed.requestBody,
+    requestQueryParams: null,
+    responseHttpStatus,
+    responseCode,
+    responseMessage,
+    responseData: isSuccess ? seed.responseBody : null,
+    responseTimeMs: parseInt(seed.latency, 10) || 0,
+    fiServiceId: null,
+    creationTime: Math.floor(Date.now() / 1000),
+  };
+}
+
+function formatEpochToVnString(epochSeconds: number): string {
+  const d = new Date(epochSeconds * 1000);
+  const pad = (n: number) => n.toString().padStart(2, "0");
+  return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())} ${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()} (+07:00)`;
+}
+
+function scopeFromRequestUri(requestUri: string): string {
+  if (requestUri.startsWith("/esign/")) return "eSign";
+  if (requestUri.startsWith("/grant/")) return "Grant";
+  return "API";
+}
+
+function fiServiceTypeLabel(type: string): string {
+  if (type === "BUSINESS") return "Doanh nghiệp";
+  if (type === "PERSONAL") return "Cá nhân";
+  return type;
+}
+
+// Builds a LogRecord straight from the raw shape the log API actually returns.
+function logRecordFromRaw(raw: {
+  uuid: string;
+  request_uri: string;
+  request_params: string | null;
+  request_query_params: string | null;
+  response_http_status: number;
+  response_code: string;
+  response_message: string;
+  response_data: string | null;
+  response_time: number;
+  fi_service_id: string | number | null;
+  creation_time: number;
+  grantId?: string | null;
+  fi_service?: { name: string; logo: string; type: string } | null;
+}): LogRecord {
+  return {
+    requestId: raw.uuid,
+    endpoint: raw.request_uri,
+    scope: scopeFromRequestUri(raw.request_uri),
+    grantId: raw.grantId ?? null,
+    bank: raw.fi_service?.name ?? "—",
+    http: String(raw.response_http_status),
+    latency: `${raw.response_time} ms`,
+    createdAt: formatEpochToVnString(raw.creation_time),
+    requestBody: raw.request_params ?? "",
+    responseBody: raw.response_data ?? "",
+    uuid: raw.uuid,
+    requestUri: raw.request_uri,
+    requestParams: raw.request_params,
+    requestQueryParams: raw.request_query_params,
+    responseHttpStatus: raw.response_http_status,
+    responseCode: raw.response_code,
+    responseMessage: raw.response_message,
+    responseData: raw.response_data,
+    responseTimeMs: raw.response_time,
+    fiServiceId: raw.fi_service_id,
+    creationTime: raw.creation_time,
+    fiService: raw.fi_service ?? null,
+  };
+}
+
+// Logs without a Grant ID / financial institution attached
+const rawNoGrantLogs = [
+  { uuid: "-TtIQcrwWVdOdBsk", request_uri: "/esign/request-document", request_params: "{\"signRequestId\":\"TEST-QR-100\",\"documentName\":\"TEST-QR-100\",\"signatureFields\":\"[\\n  {\\n    \\\"page\\\": 1,\\n    \\\"xRatio\\\": 0.52,\\n    \\\"yRatio\\\": 0.36,\\n    \\\"widthRatio\\\": 0.4,\\n    \\\"heightRatio\\\": 0.09,\\n    \\\"fieldType\\\": \\\"SIGNATURE\\\"\\n  }\\n]\",\"organizationName\":\"Cas ID\",\"taxCode\":\"0110740977\",\"identificationNumber\":\"080304008311\",\"language\":\"en\"}", request_query_params: null, response_http_status: 400, response_code: "E_SIGN_TRANSACTION_ID_ALREADY_EXISTS", response_message: "Mã giao dịch đã tồn tại", response_data: null, response_time: 8, fi_service_id: null, creation_time: 1789629949 },
+  { uuid: "44xmKzg03YybeDbr", request_uri: "/esign/request-document", request_params: "{\"signRequestId\":\"TEST-QR-100\",\"documentName\":\"TEST-QR-100\",\"signatureFields\":\"[\\n  {\\n    \\\"page\\\": 1,\\n    \\\"xRatio\\\": 0.52,\\n    \\\"yRatio\\\": 0.36,\\n    \\\"widthRatio\\\": 0.4,\\n    \\\"heightRatio\\\": 0.09,\\n    \\\"fieldType\\\": \\\"SIGNATURE\\\"\\n  }\\n]\",\"organizationName\":\"Cas ID\",\"taxCode\":\"3801359276\",\"identificationNumber\":\"080304008311\",\"language\":\"en\"}", request_query_params: null, response_http_status: 200, response_code: "OK", response_message: "OK", response_data: null, response_time: 371, fi_service_id: null, creation_time: 1789627541 },
+  { uuid: "mTHpuKKOKc2gjFAr", request_uri: "/esign/request-document", request_params: "{\"signRequestId\":\"CAS-MTUXN96V-047FEE8A\",\"identificationNumber\":\"001302042494\",\"documentName\":\"HĐ MẪU_HỢP ĐỒNG DỊCH VỤ CUNG CẤP PHẦN MỀM.docx\",\"organizationName\":\"Cas Sign\",\"taxCode\":\"0220330440\",\"signatureFields\":\"[{\\\"page\\\":1,\\\"xRatio\\\":0.52,\\\"yRatio\\\":0.20000000000000004,\\\"widthRatio\\\":0.34,\\\"heightRatio\\\":0.1,\\\"fieldType\\\":\\\"SIGNATURE\\\"},{\\\"page\\\":27,\\\"xRatio\\\":0.5583480674342105,\\\"yRatio\\\":0.6536890137401025,\\\"widthRatio\\\":0.34,\\\"heightRatio\\\":0.1,\\\"fieldType\\\":\\\"SIGNATURE\\\"}]\"}", request_query_params: null, response_http_status: 200, response_code: "OK", response_message: "OK", response_data: null, response_time: 1316, fi_service_id: null, creation_time: 1789008796 },
+  { uuid: "J8lkqraF4C7-4C-T", request_uri: "/esign/download-file", request_params: "{\"identityKey\":\"219ce51f-b5a8-46a5-ac57-7f412886c721\"}", request_query_params: null, response_http_status: 400, response_code: "E_SIGN_IDENTITY_KEY_EXPIRED", response_message: "identityKey đã hết hạn", response_data: null, response_time: 6, fi_service_id: null, creation_time: 1789008739 },
+  { uuid: "mjyxNI9TNzo3zOju", request_uri: "/esign/request-status", request_params: "{\"signRequestId\":\"CAS-MTS4HOXG-0A220FEC\"}", request_query_params: null, response_http_status: 200, response_code: "OK", response_message: "OK", response_data: null, response_time: 6, fi_service_id: null, creation_time: 1789008738 },
+  { uuid: "CFqpjQogG7D8lrSJ", request_uri: "/esign/request-document", request_params: "{\"signRequestId\":\"delegation-07\",\"documentName\":\"delegation-07\",\"signatureFields\":\"[{\\\"page\\\":1,\\\"xRatio\\\":0.52,\\\"yRatio\\\":0.36,\\\"widthRatio\\\":0.4,\\\"heightRatio\\\":0.09,\\\"fieldType\\\":\\\"SIGNATURE\\\"}]\",\"organizationName\":\"Cas ID\",\"identificationNumber\":\"080304008312\",\"language\":\"vi\"}", request_query_params: null, response_http_status: 200, response_code: "OK", response_message: "OK", response_data: null, response_time: 428, fi_service_id: null, creation_time: 1788943859 },
 ];
+
+// Logs with a Grant ID / financial institution attached (fi_service may still be null)
+const rawGrantLogs = [
+  { uuid: "19gQPiZlcgD9NhSk", request_uri: "/grant/token", request_params: "{\"scopes\":\"virtual_account\",\"virtualAccountNumber\":\"V3CASS1809001\",\"redirectUri\":\"bankhub://bankhub.com\",\"language\":\"vi\",\"fiServiceId\":\"ebf7fe6d-af63-11ee-aa7e-42010a400022\",\"user\":{\"legalName\":\"TRUONG HOANG HA\",\"idNumber\":\"031090005007\",\"mobileNumber\":\"0961228255\"}}", request_query_params: null, response_http_status: 200, response_code: "OK", response_message: "OK", response_data: null, response_time: 294, fi_service_id: 133, creation_time: 1789694997, grantId: "7558d8b7-b300-11f1-a10d-02cf4c5ff398", fi_service: { name: "BIDV VietQR Official", logo: "https://img.bankhub.dev/rounded/bidv.png?2024", type: "PERSONAL" } },
+  { uuid: "DQso9fXgWaPhumYw", request_uri: "/grant/token", request_params: "{\"scopes\":\"transaction,identity,balance,qrpay\",\"redirectUri\":\"bankhub://bankhub.com\",\"language\":\"vi\",\"fiServiceId\":null,\"user\":{\"legalName\":\"UONG VAN NGHIA\",\"idNumber\":\"001211064829\",\"mobileNumber\":\"0326433726\"}}", request_query_params: null, response_http_status: 200, response_code: "OK", response_message: "OK", response_data: null, response_time: 42, fi_service_id: null, creation_time: 1789694566, grantId: "74586b35-b2ff-11f1-a10d-02cf4c5ff398", fi_service: null },
+  { uuid: "spNtt8E4Xk1zh8yL", request_uri: "/grant/exchange", request_params: "{\"publicToken\":\"7e65bd5e-582b-421b-a325-d9580015a4aa\"}", request_query_params: null, response_http_status: 200, response_code: "OK", response_message: "OK", response_data: null, response_time: 418, fi_service_id: 173, creation_time: 1789691765, grantId: "de85e286-b2f8-11f1-a10d-02cf4c5ff398", fi_service: { name: "MBBank VietQR Official", logo: "https://img.bankhub.dev/rounded/mbbank.png", type: "PERSONAL" } },
+  { uuid: "GG2HbnWRo_c0g-4z", request_uri: "/grant/token", request_params: "{\"scopes\":\"qrpay\",\"redirectUri\":\"bankhub://bankhub.com\",\"language\":\"vi\",\"fiServiceId\":\"c9242965-f5bb-11ee-a323-0022481a0395\",\"user\":{\"legalName\":\"NGUYEN HUY HOANG\",\"idNumber\":\"077205001279\",\"mobileNumber\":\"0387446798\"}}", request_query_params: null, response_http_status: 200, response_code: "OK", response_message: "OK", response_data: null, response_time: 36, fi_service_id: 173, creation_time: 1789691737, grantId: "de85e286-b2f8-11f1-a10d-02cf4c5ff398", fi_service: { name: "MBBank VietQR Official", logo: "https://img.bankhub.dev/rounded/mbbank.png", type: "PERSONAL" } },
+  { uuid: "R6Xtuw6tA6iFP9rn", request_uri: "/grant/token", request_params: "{\"scopes\":\"transaction,identity,balance,qrpay\",\"redirectUri\":\"bankhub://bankhub.com\",\"language\":\"vi\",\"fiServiceId\":null,\"user\":{\"legalName\":\"NGUYEN KHA MINH\",\"idNumber\":\"001091028659\",\"mobileNumber\":\"0966774004\",\"companyName\":\"CÔNG TY TNHH ĐẦU TƯ VÀ XÂY DỰNG ĐẤT VÀNG GROUP\",\"companyLegalId\":\"0110372307\"}}", request_query_params: null, response_http_status: 200, response_code: "OK", response_message: "OK", response_data: null, response_time: 34, fi_service_id: null, creation_time: 1789688549, grantId: "71f5ca81-b2f1-11f1-a10d-02cf4c5ff398", fi_service: null },
+  { uuid: "fSSv_c-gcT9-onZ3", request_uri: "/grant/token", request_params: "{\"scopes\":\"transaction,identity,balance,qrpay\",\"redirectUri\":\"bankhub://bankhub.com\",\"language\":\"vi\",\"fiServiceId\":null,\"user\":{\"legalName\":\"NGUYEN KHA MINH\",\"idNumber\":\"001091028659\",\"mobileNumber\":\"0966774004\",\"companyName\":\"CÔNG TY TNHH ĐẦU TƯ VÀ XÂY DỰNG ĐẤT VÀNG GROUP\",\"companyLegalId\":\"0110372307\"}}", request_query_params: null, response_http_status: 200, response_code: "OK", response_message: "OK", response_data: null, response_time: 46, fi_service_id: null, creation_time: 1789687980, grantId: "1ecaf77c-b2f0-11f1-a10d-02cf4c5ff398", fi_service: null },
+  { uuid: "1QsphOKRWAGTnXpz", request_uri: "/grant/token", request_params: "{\"scopes\":\"transaction,identity,balance,qrpay\",\"redirectUri\":\"bankhub://bankhub.com\",\"language\":\"vi\",\"fiServiceId\":null,\"user\":{\"legalName\":\"NGUYEN KHA MINH\",\"idNumber\":\"001091028659\",\"mobileNumber\":\"0966774004\",\"companyName\":\"CÔNG TY TNHH ĐẦU TƯ VÀ XÂY DỰNG ĐẤT VÀNG GROUP\",\"companyLegalId\":\"0110372307\"}}", request_query_params: null, response_http_status: 200, response_code: "OK", response_message: "OK", response_data: null, response_time: 47, fi_service_id: null, creation_time: 1789687958, grantId: "11cbebed-b2f0-11f1-a10d-02cf4c5ff398", fi_service: null },
+  { uuid: "HNHns1wuYFJeVgVJ", request_uri: "/grant/exchange", request_params: "{\"publicToken\":\"a5458b7c-6865-4ea9-bc1e-402ef4990a8a\"}", request_query_params: null, response_http_status: 200, response_code: "OK", response_message: "OK", response_data: null, response_time: 311, fi_service_id: 133, creation_time: 1789686121, grantId: "7644940f-b2eb-11f1-a10d-02cf4c5ff398", fi_service: { name: "BIDV VietQR Official", logo: "https://img.bankhub.dev/rounded/bidv.png?2024", type: "PERSONAL" } },
+  { uuid: "clQ6MORpgi9xxdXk", request_uri: "/grant/token", request_params: "{\"scopes\":\"transaction,identity,balance,qrpay\",\"redirectUri\":\"bankhub://bankhub.com\",\"language\":\"vi\",\"fiServiceId\":null,\"user\":{\"legalName\":\"HA VAN THINH\",\"idNumber\":\"025209003172\",\"mobileNumber\":\"0373726082\"}}", request_query_params: null, response_http_status: 200, response_code: "OK", response_message: "OK", response_data: null, response_time: 38, fi_service_id: null, creation_time: 1789685979, grantId: "7644940f-b2eb-11f1-a10d-02cf4c5ff398", fi_service: { name: "BIDV VietQR Official", logo: "https://img.bankhub.dev/rounded/bidv.png?2024", type: "PERSONAL" } },
+];
+
+const logRecords: LogRecord[] = [...rawGrantLogs.map(logRecordFromRaw), ...rawNoGrantLogs.map(logRecordFromRaw)];
 
 const webhookLogs: WebhookLog[] = [
   { id: "wh_A1B2C3D4E5", category: "SIGN", bank: "", httpStatus: "200", webhookName: "SIGN", createdAt: "08:08:04 09/09/2026 (+07:00)", payload: "{\n  \"event\": \"sign.completed\",\n  \"grantId\": \"grt_8L2KP91N\"\n}", response: "{\n  \"status\": \"ok\"\n}" },
@@ -907,9 +1040,8 @@ export default function Home() {
     const timeStr = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}:${now.getSeconds().toString().padStart(2, '0')} ${now.getDate().toString().padStart(2, '0')}/${(now.getMonth() + 1).toString().padStart(2, '0')}/${now.getFullYear()} (+07:00)`;
 
     // 1. Add log entry
-    const newLog: LogRecord = {
+    const newLogSeed = {
       requestId: reqId,
-      method: scope === "Transaction" || scope === "Identity" || scope === "Balance" ? "GET" : "POST",
       endpoint: scopeConfig[scope as Exclude<AnalyticsTab, "Connection">]?.endpoints[0] || `/v2/${scope.toLowerCase()}`,
       scope: scope,
       grantId: "grt_8L2KP91N",
@@ -920,6 +1052,7 @@ export default function Home() {
       requestBody: JSON.stringify({ bank: params.bank, amount: params.amount || 100000, accountName: params.accountName, note: params.note }, null, 2),
       responseBody: JSON.stringify({ status: "SUCCESS", requestId: reqId, message: "Sandbox Test Execution Successful", timestamp: new Date().toISOString() }, null, 2)
     };
+    const newLog: LogRecord = { ...newLogSeed, ...deriveRawLogFields(newLogSeed), fiService: null };
     setLogRecordsState(prev => [newLog, ...prev]);
 
     // 2. Add row entry to usageTableData
@@ -2358,6 +2491,22 @@ function UsageRecordsTable({ tab, search, onSearch, timeFilter, onTimeFilter, pa
   </div>;
 }
 
+function prettyPrintJsonString(raw: string): string {
+  try {
+    return JSON.stringify(JSON.parse(raw), null, 2);
+  } catch {
+    return raw;
+  }
+}
+
+function tryParseJson(raw: string): unknown {
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return raw;
+  }
+}
+
 function LogJsonHighlight({ raw }: { raw: string }) {
   const html = (() => {
     try {
@@ -2412,7 +2561,7 @@ function LogsScreen({ logRecordsData, showNotice }: { logRecordsData: LogRecord[
 
   // ── Filtered data ──
   const filteredReq = logRecordsData.filter(log => {
-    const text = `${log.requestId} ${log.grantId} ${log.endpoint} ${log.bank} ${log.scope}`.toLowerCase();
+    const text = `${log.requestId} ${log.grantId || ""} ${log.endpoint} ${log.bank} ${log.scope}`.toLowerCase();
     return text.includes(query.toLowerCase())
       && (route === "Tất cả API routes" || log.endpoint === route)
       && (responseCode === "Tất cả response" || (responseCode === "2xx Thành công" ? log.http.startsWith("2") : !log.http.startsWith("2")))
@@ -2550,7 +2699,14 @@ function LogsScreen({ logRecordsData, showNotice }: { logRecordsData: LogRecord[
           <tbody>{visibleReq.map(log => (
             <tr key={log.requestId} tabIndex={0} onClick={() => { setSelectedLog(log); setDetailTab("request"); }} onKeyDown={e => { if (e.key === "Enter") setSelectedLog(log); }}>
               <td><strong style={{ color: "#000", fontSize: 13.5, fontFamily: "monospace" }}>{log.requestId}</strong></td>
-              <td style={{ color: "#000" }}>{log.bank}</td>
+              <td style={{ color: "#000" }}>
+                {log.fiService ? (
+                  <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+                    <img src={log.fiService.logo} alt="" style={{ width: 20, height: 20, borderRadius: "50%" }} />
+                    {log.fiService.name}
+                  </span>
+                ) : "—"}
+              </td>
               <td><span className={`log-http ${log.http.startsWith("2") ? "success" : "failed"}`}>{log.http.startsWith("2") ? "✓" : "×"} {log.http}</span></td>
               <td><code style={{ color: "#000", fontFamily: "monospace", fontSize: 13 }}>{log.endpoint}</code></td>
               <td style={{ color: "#000", fontSize: 12, whiteSpace: "nowrap" }}>{log.createdAt}</td>
@@ -2621,34 +2777,64 @@ function LogsScreen({ logRecordsData, showNotice }: { logRecordsData: LogRecord[
     {/* Request Log Detail Drawer */}
     {selectedLog && <div className="log-drawer-backdrop" onMouseDown={() => setSelectedLog(null)}>
       <aside className="log-drawer" role="dialog" aria-modal="true" aria-labelledby="log-detail-title" onMouseDown={e => e.stopPropagation()}>
-        <div className="log-drawer-heading"><div><span>REQUEST LOG</span><h2 id="log-detail-title">{selectedLog.requestId}</h2></div><button aria-label="Đóng" onClick={() => setSelectedLog(null)}>×</button></div>
+        <div className="log-drawer-heading"><div><span>REQUEST LOG</span><h2 id="log-detail-title">{selectedLog.uuid}</h2></div><button aria-label="Đóng" onClick={() => setSelectedLog(null)}>×</button></div>
         <div className="log-overview">
-          <div><span>Trạng thái</span><strong><i className={selectedLog.http.startsWith("2") ? "ok" : "error"} />HTTP {selectedLog.http}</strong></div>
-          <div><span>Thời gian xử lý</span><strong>{selectedLog.latency}</strong></div>
+          <div><span>Trạng thái</span><strong><i className={selectedLog.responseHttpStatus >= 200 && selectedLog.responseHttpStatus < 300 ? "ok" : "error"} />HTTP {selectedLog.responseHttpStatus}</strong></div>
+          <div><span>Thời gian xử lý</span><strong>{selectedLog.responseTimeMs} ms</strong></div>
           <div><span>Thời gian gọi</span><strong>{selectedLog.createdAt}</strong></div>
         </div>
         <dl className="log-metadata">
-          <div><dt>Request</dt><dd><b className={`method ${selectedLog.method.toLowerCase()}`}>{selectedLog.method}</b><code>{selectedLog.endpoint}</code></dd></div>
-          <div><dt>Grant ID</dt><dd><code>{selectedLog.grantId}</code></dd></div>
-          <div><dt>Scope</dt><dd>{selectedLog.scope}</dd></div>
-          <div><dt>Ngân hàng</dt><dd>{selectedLog.bank}</dd></div>
+          <div><dt>Request URI</dt><dd><code>{selectedLog.requestUri}</code></dd></div>
+          <div><dt>Grant ID</dt><dd><code>{selectedLog.grantId ?? "null"}</code></dd></div>
+          <div>
+            <dt>Dịch vụ tài chính</dt>
+            <dd>
+              {selectedLog.fiService ? (
+                <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                  <img src={selectedLog.fiService.logo} alt="" style={{ width: 18, height: 18, borderRadius: "50%" }} />
+                  {selectedLog.fiService.name} - {fiServiceTypeLabel(selectedLog.fiService.type)}
+                </span>
+              ) : (
+                <code>null</code>
+              )}
+            </dd>
+          </div>
         </dl>
         <div className="log-detail-tabs">
-          <button className={detailTab === "request" ? "active" : ""} onClick={() => setDetailTab("request")}>Request</button>
-          <button className={detailTab === "response" ? "active" : ""} onClick={() => setDetailTab("response")}>Response</button>
+          <button className={detailTab === "request" ? "active" : ""} onClick={() => setDetailTab("request")}>Request params</button>
+          <button className={detailTab === "response" ? "active" : ""} onClick={() => setDetailTab("response")}>Response data</button>
         </div>
         <div className="log-code-section">
-          <div><span>{detailTab === "request" ? "Request body" : "Response body"}</span>
-            <button onClick={() => { navigator.clipboard?.writeText(detailTab === "request" ? selectedLog.requestBody : selectedLog.responseBody); showNotice("Đã sao chép JSON"); }}>Sao chép</button>
+          <div style={{ justifyContent: "flex-end" }}>
+            {(detailTab === "request" ? !!selectedLog.requestParams : true) && (
+              <button onClick={() => {
+                const text = detailTab === "request"
+                  ? (selectedLog.requestParams || "")
+                  : JSON.stringify({ response_code: selectedLog.responseCode, response_message: selectedLog.responseMessage, response_data: selectedLog.responseData ? tryParseJson(selectedLog.responseData) : null }, null, 2);
+                navigator.clipboard?.writeText(text);
+                showNotice("Đã sao chép JSON");
+              }}>Sao chép</button>
+            )}
           </div>
-          <LogJsonHighlight raw={detailTab === "request" ? selectedLog.requestBody : selectedLog.responseBody} />
+          {detailTab === "request" ? (
+            selectedLog.requestParams ? (
+              <LogJsonHighlight raw={prettyPrintJsonString(selectedLog.requestParams)} />
+            ) : (
+              <div className="log-empty-body">null</div>
+            )
+          ) : (
+            <LogJsonHighlight raw={JSON.stringify({
+              response_code: selectedLog.responseCode,
+              response_message: selectedLog.responseMessage,
+              response_data: selectedLog.responseData ? tryParseJson(selectedLog.responseData) : null,
+            }, null, 2)} />
+          )}
         </div>
-        <div className="log-headers">
-          <h3>Headers</h3>
-          <div><span>x-request-id</span><code>{selectedLog.requestId}</code></div>
-          <div><span>x-client-id</span><code>33d42bee-••••-••••-••••-51e958e065ae</code></div>
-          <div><span>content-type</span><code>application/json</code></div>
-        </div>
+        {selectedLog.requestQueryParams && (
+          <div className="log-code-section" style={{ borderBottom: "none" }}>
+            <LogJsonHighlight raw={prettyPrintJsonString(selectedLog.requestQueryParams)} />
+          </div>
+        )}
       </aside>
     </div>}
 
@@ -4152,9 +4338,17 @@ type GrantDebugData = {
   grantId: string;
   user?: string | null;
   bank?: string | null;
+  orgId?: string | null;
+  product?: string | null;
+  webhookUrl?: string | null;
   accountNo?: string | null;
+  accountName?: string | null;
+  accountStatus?: "CONNECTED" | "CONNECTING" | "DISCONNECTED" | null;
   scopes: string[];
   status: "Active" | "Paused" | "Revoked" | "Pending";
+  grantStatus: "ACCEPTED" | "PENDING" | "REJECTED" | "REVOKED";
+  lastSuccessUpdate?: string | null;
+  lastFailedUpdate?: string | null;
   createdAt: string;
   lastAccess: string;
   logs: {
@@ -4173,9 +4367,17 @@ const mockGrantsDb: Record<string, GrantDebugData> = {
     grantId: "grt_8L2KP91N",
     user: "Nguyễn Minh Anh",
     bank: "Techcombank (TCB)",
+    orgId: "a1f2c965-f5bb-11ee-a323-0022481a0395",
+    product: "eKYC",
+    webhookUrl: "https://api.vietfin.digital/webhooks/grant",
     accountNo: "19038291048201",
+    accountName: "NGUYEN MINH ANH",
+    accountStatus: "CONNECTED",
     scopes: ["Transaction", "Balance", "Identity"],
     status: "Active",
+    grantStatus: "ACCEPTED",
+    lastSuccessUpdate: "19/08/2026 17:31:04",
+    lastFailedUpdate: null,
     createdAt: "12/05/2026 09:24:12",
     lastAccess: "2 phút trước",
     logs: [
@@ -4190,9 +4392,17 @@ const mockGrantsDb: Record<string, GrantDebugData> = {
     grantId: "grt_4T7MD20Q",
     user: "Trần Hoàng Long",
     bank: "Vietcombank (VCB)",
+    orgId: "c9242965-f5bb-11ee-a323-0022481a0395",
+    product: "Qrpay",
+    webhookUrl: null,
     accountNo: "0071001928491",
+    accountName: "TRAN HOANG LONG",
+    accountStatus: "CONNECTING",
     scopes: ["Balance", "QRPay", "Transfer"],
     status: "Active",
+    grantStatus: "ACCEPTED",
+    lastSuccessUpdate: null,
+    lastFailedUpdate: null,
     createdAt: "15/06/2026 14:10:00",
     lastAccess: "11 phút trước",
     logs: [
@@ -4205,9 +4415,17 @@ const mockGrantsDb: Record<string, GrantDebugData> = {
     grantId: "grt_1A9HC63V",
     user: "Phạm Thùy Linh",
     bank: "MB Bank (MBB)",
+    orgId: "d4e15aa2-f5bb-11ee-a323-0022481a0395",
+    product: "eKYC",
+    webhookUrl: "https://api.vietfin.digital/webhooks/grant",
     accountNo: "8829103948102",
+    accountName: "PHAM THUY LINH",
+    accountStatus: "DISCONNECTED",
     scopes: ["Identity", "eKYC"],
     status: "Paused",
+    grantStatus: "REJECTED",
+    lastSuccessUpdate: "10/07/2026 08:12:00",
+    lastFailedUpdate: "19/08/2026 16:55:00",
     createdAt: "01/07/2026 10:00:00",
     lastAccess: "36 phút trước",
     logs: [
@@ -4219,9 +4437,17 @@ const mockGrantsDb: Record<string, GrantDebugData> = {
     grantId: "grt_9X2PENDING",
     user: null,
     bank: null,
+    orgId: null,
+    product: "Transaction",
+    webhookUrl: null,
     accountNo: null,
+    accountName: null,
+    accountStatus: null,
     scopes: ["Transaction", "Balance"],
     status: "Pending",
+    grantStatus: "PENDING",
+    lastSuccessUpdate: null,
+    lastFailedUpdate: null,
     createdAt: "19/08/2026 18:00:00",
     lastAccess: "Chưa phát sinh",
     logs: [
@@ -4230,10 +4456,29 @@ const mockGrantsDb: Record<string, GrantDebugData> = {
   },
 };
 
+function bankAvatarColor(name: string) {
+  const colors = ["#2563eb", "#dc2626", "#16a34a", "#7c3aed", "#d97706", "#0891b2"];
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
+  return colors[Math.abs(hash) % colors.length];
+}
+
+function GrantInfoRow({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 16, padding: "14px 0" }}>
+      <div style={{ width: 220, flexShrink: 0, fontSize: 14.5, color: "#64748b" }}>{label}</div>
+      <div style={{ flex: 1, fontSize: 15, color: "#0f172a" }}>{children}</div>
+    </div>
+  );
+}
+
 function GrantDebuggerScreen({ showNotice }: { showNotice: (message: string) => void }) {
   const [searchGrantId, setSearchGrantId] = useState("grt_8L2KP91N");
   const [activeGrant, setActiveGrant] = useState<GrantDebugData | null>(mockGrantsDb["grt_8L2KP91N"]);
   const [searched, setSearched] = useState(true);
+
+  const trimmedQuery = searchGrantId.trim();
+  const isValidId = trimmedQuery.length > 0 && !!mockGrantsDb[trimmedQuery];
 
   function handleSearch(idToSearch?: string) {
     const query = (idToSearch || searchGrantId).trim();
@@ -4256,132 +4501,167 @@ function GrantDebuggerScreen({ showNotice }: { showNotice: (message: string) => 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20, maxWidth: 960, padding: "4px 0 30px" }}>
       {/* Search Header */}
-      <section style={{ background: "white", border: "1px solid var(--line)", borderRadius: 8, padding: "20px" }}>
-        <h2 style={{ fontSize: 18, fontWeight: 700, margin: "0 0 6px 0", color: "#0f172a" }}>
+      <section style={{ background: "white", border: "1px solid var(--line)", borderRadius: 8, padding: "20px", display: "flex", alignItems: "center", gap: 20 }}>
+        <h2 style={{ fontSize: 26, fontWeight: 800, margin: 0, color: "#0f172a", whiteSpace: "nowrap" }}>
           Grant Debugger
         </h2>
-        <p style={{ fontSize: 13, color: "#64748b", margin: "0 0 16px 0" }}>
-          Tra cứu thông tin và lịch sử các lượt gọi API của từng Grant ID.
-        </p>
 
-        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+        <div style={{ flex: 1, position: "relative" }}>
           <input
             type="text"
-            placeholder="Nhập Grant ID (Ví dụ: grt_8L2KP91N, grt_4T7MD20Q, grt_9X2PENDING)..."
+            placeholder="Nhập Grant ID..."
             value={searchGrantId}
             onChange={e => setSearchGrantId(e.target.value)}
             onKeyDown={e => { if (e.key === "Enter") handleSearch(); }}
             style={{
-              flex: 1,
-              padding: "8px 12px",
-              border: "1px solid #cbd5e1",
-              borderRadius: 6,
-              fontSize: 13.5,
-              fontFamily: "monospace",
+              width: "100%",
+              boxSizing: "border-box",
+              padding: "12px 40px 12px 16px",
+              border: `1px solid ${trimmedQuery ? "#3b82f6" : "#cbd5e1"}`,
+              borderRadius: 8,
+              background: trimmedQuery ? "#eff6ff" : "white",
+              fontSize: 15,
               outline: "none",
             }}
           />
-          <button
-            onClick={() => handleSearch()}
+          {trimmedQuery && (
+            <button
+              onClick={() => setSearchGrantId("")}
+              aria-label="Xoá"
+              style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", color: "#64748b", fontSize: 16, cursor: "pointer", lineHeight: 1 }}
+            >
+              ×
+            </button>
+          )}
+        </div>
+
+        {trimmedQuery && (
+          <span
             style={{
-              background: "#000",
-              color: "white",
-              border: "none",
-              borderRadius: 6,
-              padding: "8px 18px",
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
               fontSize: 13,
-              fontWeight: 600,
-              cursor: "pointer",
+              fontWeight: 700,
+              padding: "9px 14px",
+              borderRadius: 8,
+              border: `1px solid ${isValidId ? "#16a34a" : "#dc2626"}`,
+              color: isValidId ? "#16a34a" : "#dc2626",
+              whiteSpace: "nowrap",
             }}
           >
-            Tra cứu
-          </button>
-        </div>
+            {isValidId ? "✓ HỢP LỆ" : "✗ KHÔNG HỢP LỆ"}
+          </span>
+        )}
+
+        <button
+          onClick={() => handleSearch()}
+          aria-label="Tra cứu"
+          style={{
+            width: 42,
+            height: 42,
+            flexShrink: 0,
+            background: "white",
+            border: "1px solid #cbd5e1",
+            borderRadius: 8,
+            fontSize: 16,
+            cursor: "pointer",
+            color: "#334155",
+          }}
+        >
+          ⌕
+        </button>
       </section>
 
       {/* Grant Details & Call Logs */}
       {activeGrant ? (
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-          {/* Grant Overview Card */}
-          <div style={{ background: "white", border: "1px solid var(--line)", borderRadius: 8, padding: "18px 20px" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 14 }}>
-              <div>
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <h3 style={{ fontSize: 16, fontWeight: 700, margin: 0, color: activeGrant.user ? "#0f172a" : "#64748b" }}>
-                    {activeGrant.user || "Chưa có thông tin người dùng"}
-                  </h3>
-                  <span
-                    style={{
-                      fontSize: 11.5,
-                      fontWeight: 600,
-                      color:
-                        activeGrant.status === "Active"
-                          ? "#16a34a"
-                          : activeGrant.status === "Pending"
-                            ? "#d97706"
-                            : activeGrant.status === "Paused"
-                              ? "#d97706"
-                              : "#dc2626",
-                      background:
-                        activeGrant.status === "Active"
-                          ? "#dcfce7"
-                          : activeGrant.status === "Pending"
-                            ? "#fef3c7"
-                            : activeGrant.status === "Paused"
-                              ? "#fef3c7"
-                              : "#fee2e2",
-                      padding: "2px 8px",
-                      borderRadius: 4,
-                    }}
-                  >
-                    ● {activeGrant.status === "Pending" ? "Chưa cấp quyền" : activeGrant.status === "Active" ? "Hoạt động" : activeGrant.status === "Paused" ? "Tạm dừng" : "Đã thu hồi"}
-                  </span>
-                </div>
-                <div style={{ fontSize: 13, color: "#64748b", marginTop: 4 }}>
-                  {activeGrant.bank ? (
-                    <>
-                      Ngân hàng: <strong style={{ color: "#0f172a" }}>{activeGrant.bank}</strong>
-                      {activeGrant.accountNo ? (
-                        <>
-                          {" "}· Số TK: <code style={{ fontFamily: "monospace", color: "#0f172a" }}>{activeGrant.accountNo}</code>
-                        </>
-                      ) : null}
-                    </>
-                  ) : (
-                    <span>
-                      Ngân hàng: <em style={{ color: "#94a3b8" }}>Chưa liên kết (Người dùng chưa hoàn tất cấp quyền)</em>
+          {/* Grant Detail Card */}
+          <div style={{ background: "white", border: "1px solid var(--line)", borderRadius: 8, padding: "22px 24px" }}>
+            <div style={{ fontSize: 14.5, color: "#64748b", marginBottom: 8 }}>Grant ID</div>
+            <div style={{ fontSize: 26, fontWeight: 800, color: "#0f172a", marginBottom: 20 }}>{activeGrant.grantId}</div>
+
+            <div style={{ borderTop: "1px solid var(--line)" }}>
+              <GrantInfoRow label="Tổ chức tài chính">
+                {activeGrant.bank ? (
+                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    <span style={{ width: 30, height: 30, borderRadius: "50%", background: bankAvatarColor(activeGrant.bank), color: "white", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, flexShrink: 0 }}>
+                      {activeGrant.bank.slice(0, 2).toUpperCase()}
                     </span>
-                  )}
-                </div>
-              </div>
+                    {activeGrant.bank}
+                  </div>
+                ) : (
+                  <em style={{ color: "#94a3b8" }}>Chưa liên kết (Người dùng chưa hoàn tất cấp quyền)</em>
+                )}
+              </GrantInfoRow>
+              <GrantInfoRow label="ID tổ chức">
+                <code style={{ fontSize: 13.5, color: "#0f172a" }}>{activeGrant.orgId || "—"}</code>
+              </GrantInfoRow>
+              <GrantInfoRow label="Sản phẩm được hỗ trợ">
+                {activeGrant.product || "—"}
+              </GrantInfoRow>
+              <GrantInfoRow label="Webhooks">
+                {activeGrant.webhookUrl ? (
+                  <code style={{ fontSize: 13 }}>{activeGrant.webhookUrl}</code>
+                ) : (
+                  <span style={{ color: "#0f172a" }}>Grant này chưa được cấu hình với một webhook</span>
+                )}
+              </GrantInfoRow>
             </div>
 
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12, background: "#f8fafc", borderRadius: 6, padding: "12px 14px" }}>
-              <div>
-                <small style={{ color: "#64748b", fontSize: 11, display: "block" }}>GRANT ID</small>
-                <code style={{ fontSize: 12.5, fontWeight: 600, color: "#0f172a" }}>{activeGrant.grantId}</code>
-              </div>
-              <div>
-                <small style={{ color: "#64748b", fontSize: 11, display: "block" }}>SCOPES YÊU CẦU</small>
-                <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginTop: 2 }}>
-                  {activeGrant.scopes.map(s => (
-                    <span key={s} style={{ fontSize: 11, background: "#e2e8f0", color: "#334155", padding: "1px 6px", borderRadius: 3, fontWeight: 600 }}>{s}</span>
-                  ))}
+            <div style={{ borderTop: "1px solid var(--line)" }}>
+              <GrantInfoRow label="Tên tài khoản tài chính">
+                {activeGrant.accountName || "—"}
+              </GrantInfoRow>
+              <GrantInfoRow label="Trạng thái tài khoản tài chính">
+                <span
+                  style={{
+                    fontWeight: 700,
+                    color: activeGrant.accountStatus === "CONNECTED" ? "#16a34a" : activeGrant.accountStatus === "CONNECTING" ? "#16a34a" : activeGrant.accountStatus === "DISCONNECTED" ? "#dc2626" : "#94a3b8",
+                  }}
+                >
+                  {activeGrant.accountStatus || "—"}
+                </span>
+              </GrantInfoRow>
+            </div>
+
+            <div style={{ borderTop: "1px solid var(--line)" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "14px 0" }}>
+                <div>
+                  <div style={{ fontSize: 14.5, color: "#64748b", marginBottom: 4 }}>Trạng thái Grant</div>
+                  <span
+                    style={{
+                      fontWeight: 800,
+                      fontSize: 15,
+                      color: activeGrant.grantStatus === "ACCEPTED" ? "#16a34a" : activeGrant.grantStatus === "PENDING" ? "#d97706" : "#dc2626",
+                    }}
+                  >
+                    {activeGrant.grantStatus}
+                  </span>
                 </div>
+                <a
+                  href="#grant-debugger-logs"
+                  style={{ fontSize: 14, fontWeight: 700, color: "#0f172a", textDecoration: "none", display: "flex", alignItems: "center", gap: 4 }}
+                >
+                  Xem Logs ›
+                </a>
               </div>
-              <div>
-                <small style={{ color: "#64748b", fontSize: 11, display: "block" }}>NGÀY TẠO</small>
-                <span style={{ fontSize: 12, color: "#0f172a" }}>{activeGrant.createdAt}</span>
-              </div>
-              <div>
-                <small style={{ color: "#64748b", fontSize: 11, display: "block" }}>TRUY CẬP GẦN NHẤT</small>
-                <span style={{ fontSize: 12, color: "#0f172a" }}>{activeGrant.lastAccess}</span>
+
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, paddingBottom: 4 }}>
+                <div>
+                  <div style={{ fontSize: 13.5, color: "#64748b", marginBottom: 4 }}>Lần cập nhật cuối cùng thành công</div>
+                  <span style={{ color: "#0f172a" }}>{activeGrant.lastSuccessUpdate || "—"}</span>
+                </div>
+                <div>
+                  <div style={{ fontSize: 13.5, color: "#64748b", marginBottom: 4 }}>Lần cập nhật cuối cùng thất bại</div>
+                  <span style={{ color: activeGrant.lastFailedUpdate ? "#dc2626" : "#0f172a" }}>{activeGrant.lastFailedUpdate || "—"}</span>
+                </div>
               </div>
             </div>
           </div>
 
           {/* Call Logs Table */}
-          <div style={{ background: "white", border: "1px solid var(--line)", borderRadius: 8, padding: "18px 20px" }}>
+          <div id="grant-debugger-logs" style={{ background: "white", border: "1px solid var(--line)", borderRadius: 8, padding: "18px 20px" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
               <h3 style={{ fontSize: 15, fontWeight: 700, margin: 0, color: "#0f172a" }}>
                 Lịch sử gọi API ({activeGrant.logs.length} logs)
