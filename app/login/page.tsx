@@ -169,7 +169,7 @@ export default function LoginPage() {
         <div className="login-topbar">
           <a className="login-brand" href="/">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/cas-logo.png" alt="CAS" className="login-brand-logo" />
+            <img src={`${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/cas-logo.png`} alt="CAS" className="login-brand-logo" />
             <span className="login-sandbox-tag">SANDBOX</span>
           </a>
           <div className="login-lang-toggle" role="group" aria-label="Ngôn ngữ">
