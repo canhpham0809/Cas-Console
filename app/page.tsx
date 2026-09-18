@@ -2691,7 +2691,7 @@ function LogsScreen({ logRecordsData, showNotice }: { logRecordsData: LogRecord[
         <table className="logs-table">
           <thead><tr>
             <th style={{ width: 240 }}>REQUEST ID</th>
-            <th style={{ width: 160 }}>NGÂN HÀNG</th>
+            <th style={{ width: 160 }}>TỔ CHỨC TÀI CHÍNH</th>
             <th style={{ width: 150 }}>TRẠNG THÁI HTTP</th>
             <th style={{ width: 220 }}>ĐƯỜNG DẪN REQUEST</th>
             <th style={{ width: 220 }}>NGÀY TẠO</th>
@@ -2787,7 +2787,7 @@ function LogsScreen({ logRecordsData, showNotice }: { logRecordsData: LogRecord[
           <div><dt>Request URI</dt><dd><code>{selectedLog.requestUri}</code></dd></div>
           <div><dt>Grant ID</dt><dd><code>{selectedLog.grantId ?? "null"}</code></dd></div>
           <div>
-            <dt>Dịch vụ tài chính</dt>
+            <dt>Tổ chức tài chính</dt>
             <dd>
               {selectedLog.fiService ? (
                 <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
