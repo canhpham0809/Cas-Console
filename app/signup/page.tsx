@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import "../login/login.css";
 import { type Lang, LoginTopbar, ServiceShowcase, IconMail, IconUser, IconPhone, IconLock, IconShield, IconBadgeCheck } from "../login/shared";
 
@@ -28,7 +28,6 @@ const copy = {
     lede: "Một nền tảng API duy nhất cho Thanh toán, Chuyển tiền, eKYC và toàn bộ hạ tầng Open Banking của doanh nghiệp bạn.",
     trust1: "Mã hoá đầu cuối",
     trust2: "Tuân thủ ISO 27001",
-    successToast: "Thành công",
     confirmTitle: "Chúng tôi đã gửi cho bạn email xác nhận",
     exploreMore: "Khám phá trang web thêm?",
     backHome: "Quay về trang chủ",
@@ -57,7 +56,6 @@ const copy = {
     lede: "One API platform for Payments, Transfers, eKYC and your entire Open Banking infrastructure.",
     trust1: "End-to-end encryption",
     trust2: "ISO 27001 compliant",
-    successToast: "Success",
     confirmTitle: "We sent you a confirmation email",
     exploreMore: "Want to explore more?",
     backHome: "Back to homepage",
@@ -75,22 +73,14 @@ export default function SignupPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [submitted, setSubmitted] = useState(false);
-  const [showToast, setShowToast] = useState(false);
   const t = copy[lang];
 
   const passwordMismatch = confirmPassword.length > 0 && password !== confirmPassword;
-
-  useEffect(() => {
-    if (!showToast) return;
-    const timer = setTimeout(() => setShowToast(false), 5000);
-    return () => clearTimeout(timer);
-  }, [showToast]);
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (passwordMismatch) return;
     setSubmitted(true);
-    setShowToast(true);
   }
 
   if (submitted) {
@@ -109,14 +99,6 @@ export default function SignupPage() {
         </div>
 
         <ServiceShowcase lang={lang} tag={t.tag} headline={t.headline} lede={t.lede} />
-
-        {showToast && (
-          <div className="login-toast" role="status">
-            <IconBadgeCheck />
-            {t.successToast}
-            <button type="button" aria-label="Đóng" onClick={() => setShowToast(false)}>×</button>
-          </div>
-        )}
       </div>
     );
   }

@@ -94,7 +94,7 @@ export default function LoginPage() {
                 <input type="checkbox" />
                 {t.remember}
               </label>
-              <a className="login-forgot-inline" href="#">{t.forgot}</a>
+              <a className="login-forgot-inline" href="/forgot-password">{t.forgot}</a>
             </div>
 
             <button type="submit" className="login-submit">
