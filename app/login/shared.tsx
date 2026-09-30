@@ -40,47 +40,69 @@ export function LoginTopbar({ lang, setLang }: { lang: Lang; setLang: (lang: Lan
 }
 
 // ── Service showcase panel (right-hand brand / product list) ────────
+// The icons below are the real per-product hero icons pulled straight from
+// https://cas.so/product/<slug>/, recolored (currentColor + translucent
+// white badge) to read well on the dark showcase background.
+function ProductIcon({ html }: { html: string }) {
+  // eslint-disable-next-line react/no-danger
+  return <svg xmlns="http://www.w3.org/2000/svg" width="42" height="42" fill="none" viewBox="0 0 24 24" dangerouslySetInnerHTML={{ __html: html }} />;
+}
 function IconVirtualAccount() {
-  return <svg viewBox="0 0 24 24" fill="none"><rect x="3" y="4" width="18" height="16" rx="3" stroke="currentColor" strokeWidth="1.5" /><path d="M9 9v6l6-3-6-3Z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" /></svg>;
+  // https://cas.so/product/virtual-account/
+  return <ProductIcon html={'<path fill="rgba(255,255,255,.16)" d="M14.466 11.24c.712.42.712 1.1 0 1.52l-8.355 4.923C4.963 18.36 3 17.881 3 16.924V7.076c0-.957 1.963-1.436 3.11-.76z"/><path fill="currentColor" fill-rule="evenodd" d="M21 12c0-.7-.37-1.333-.968-1.77L10.98 3.622c-.929-.679-2.127-.749-3.066-.465C6.998 3.434 6 4.178 6 5.391V18.61c0 1.213.998 1.957 1.914 2.234.939.284 2.137.213 3.066-.465l9.052-6.608C20.63 13.333 21 12.7 21 12m-2 0c0 .038-.016.143-.189.269L9.76 18.878c-.314.23-.8.292-1.236.16-.458-.139-.523-.358-.523-.43V5.392c0-.071.065-.29.523-.429.435-.132.922-.07 1.236.16l9.052 6.61c.173.126.189.23.189.268" clip-rule="evenodd"/>'} />;
 }
 function IconQrPay() {
-  return <svg viewBox="0 0 24 24" fill="none"><rect x="3" y="4" width="6" height="6" rx="1" stroke="currentColor" strokeWidth="1.5" /><rect x="15" y="4" width="6" height="6" rx="1" stroke="currentColor" strokeWidth="1.5" /><rect x="3" y="14" width="6" height="6" rx="1" stroke="currentColor" strokeWidth="1.5" /><path d="M15 15h3M15 19h6M20 15v4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" /></svg>;
+  // https://cas.so/product/qr-pay/
+  return <ProductIcon html={'<path fill="rgba(255,255,255,.16)" d="M5.53 3.098C5.53 2.492 6.02 2 6.626 2h14.275C21.508 2 22 2.492 22 3.098v14.274c0 .607-.492 1.099-1.098 1.099H6.627a1.1 1.1 0 0 1-1.098-1.099z"/><path fill="currentColor" fill-rule="evenodd" d="M2 6.149c0-1.642 1.405-2.973 3.137-2.973h2.147a.99.99 0 1 1 0 1.981H5.137c-.577 0-1.045.444-1.045.992v12.879c0 .547.468.99 1.045.99h5.284a.99.99 0 0 1 0 1.981H5.137C3.405 22.001 2 20.67 2 19.029zM20.824 6.149c0-1.642-1.23-2.973-2.746-2.973h-1.754a.99.99 0 0 0 0 1.981h1.754c.506 0 .916.444.916.992v12.879c0 .547-.41.99-.916.99h-4.5a.99.99 0 0 0 0 1.981h4.5c1.517.001 2.746-1.33 2.746-2.971z" clip-rule="evenodd"/>'} />;
 }
 function IconEkyc() {
-  return <svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="8" r="3.2" stroke="currentColor" strokeWidth="1.5" /><path d="M5 20c0-3.6 3.1-6 7-6s7 2.4 7 6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" /></svg>;
+  // https://cas.so/product/ekyc/ (also used by IDKit)
+  return <ProductIcon html={'<path fill="rgba(255,255,255,.16)" d="M10.735 10.534a1.767 1.767 0 0 1 2.53 0l8.207 8.356c1.128 1.147.33 3.11-1.265 3.11H3.793C2.2 22 1.4 20.037 2.528 18.89z"/><path fill="currentColor" fill-rule="evenodd" d="M12 4a5 5 0 1 0 0 10 5 5 0 0 0 0-10M5 9a7 7 0 1 1 14 0A7 7 0 0 1 5 9" clip-rule="evenodd"/>'} />;
 }
 function IconTransactions() {
-  return <svg viewBox="0 0 24 24" fill="none"><path d="M4 9h13M13 5l4 4-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /><path d="M20 15H7M11 11l-4 4 4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>;
+  // https://cas.so/product/transactions/
+  return <ProductIcon html={'<path fill="rgba(255,255,255,.16)" d="m8.03 10.666 5.472-5.821a1.7 1.7 0 0 1 2.507 0l5.472 5.821a1.973 1.973 0 0 1 0 2.668l-5.472 5.821a1.7 1.7 0 0 1-2.508 0L8.03 13.334a1.973 1.973 0 0 1 0-2.668"/><path fill="currentColor" fill-rule="evenodd" d="M8.959 6.682a.84.84 0 0 1 .512-.174c.803 0 1.152 1.017.518 1.51l-2.77 2.151h8.374a.915.915 0 0 1 0 1.83H2.81a.274.274 0 0 1-.166-.491zM10.328 18.234a.84.84 0 0 1-.512.173c-.804 0-1.152-1.017-.518-1.51l2.77-2.151H3.694a.915.915 0 0 1 0-1.83h12.783c.262 0 .374.332.166.491z" clip-rule="evenodd"/>'} />;
 }
 function IconBalanceHook() {
-  return <svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="8.5" stroke="currentColor" strokeWidth="1.5" /><path d="M12 7v10M14.5 9.3c0-1-1-1.8-2.5-1.8s-2.5.9-2.5 2 1 1.6 2.5 1.9 2.5.9 2.5 2-1.1 2-2.5 2-2.5-.7-2.5-1.8" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" /></svg>;
+  // https://cas.so/product/balance-hook/
+  return <ProductIcon html={'<ellipse cx="13" cy="12.5" fill="rgba(255,255,255,.16)" rx="8" ry="7.5"/><path fill="currentColor" d="M7.422 20.5v-1.635q-1.335-.108-2.184-.58-.83-.473-1.3-1.109a4.5 4.5 0 0 1-.667-1.235 7 7 0 0 1-.235-1.017L3 14.506h2.076l.036.345q.054.327.253.8.216.472.704.89.488.4 1.353.544v-4.413l-.09-.018a10.3 10.3 0 0 1-2.003-.672 3.7 3.7 0 0 1-1.426-1.144q-.525-.746-.524-1.907 0-1.144.56-1.962a3.94 3.94 0 0 1 1.48-1.29 5.6 5.6 0 0 1 2.003-.58V3.5h1.426v1.635q1.155.144 1.896.58t1.155 1q.434.562.632 1.108.198.525.252.89l.055.345H10.78l-.054-.273a2.3 2.3 0 0 0-.217-.654 2.3 2.3 0 0 0-.578-.726q-.396-.345-1.083-.527v4.16l.163.036q.685.163 1.39.4.704.236 1.281.653.595.4.957 1.072.36.654.361 1.689 0 1.071-.541 1.925a4.1 4.1 0 0 1-1.463 1.399q-.937.526-2.148.653V20.5zM5.401 8.876q0 .708.487 1.144.487.418 1.534.69V6.825q-.938.146-1.48.726a1.85 1.85 0 0 0-.541 1.326m5.56 6.03q0-.836-.56-1.253-.559-.419-1.553-.672v4.105q.921-.165 1.517-.745.595-.582.595-1.435"/>'} />;
 }
-function IconInvoice() {
-  return <svg viewBox="0 0 24 24" fill="none"><path d="M6 3h9l3 3v15H6V3Z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" /><path d="M9 9h6M9 13h6M9 17h3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" /></svg>;
+function IconPercent() {
+  // https://cas.so/product/invoice-hub/ (also used by TVAN)
+  return <ProductIcon html={'<circle cx="13.765" cy="11.318" r="8.235" fill="rgba(255,255,255,.16)"/><path fill="currentColor" d="M5.256 12.861q-1.053 0-1.788-.433a3.04 3.04 0 0 1-1.092-1.167A3.2 3.2 0 0 1 2 9.736q0-.81.376-1.524.376-.716 1.092-1.148.735-.453 1.788-.452 1.035 0 1.751.452.734.431 1.092 1.148.375.716.376 1.524 0 .81-.376 1.525a2.86 2.86 0 0 1-1.092 1.167q-.715.433-1.75.433m-1.11 7.868L12.108 6.8h2.466L6.612 20.73zm1.092-9.675q.583 0 .903-.395.339-.396.339-.904 0-.527-.339-.922-.32-.395-.903-.395-.603 0-.923.395-.32.394-.32.922 0 .509.32.904t.923.395m8.244 9.864q-1.053 0-1.788-.433a3.04 3.04 0 0 1-1.092-1.167 3.26 3.26 0 0 1-.376-1.544q0-.81.376-1.506.377-.716 1.092-1.148.735-.452 1.788-.452 1.054 0 1.77.452.715.433 1.091 1.148.377.697.377 1.506 0 .828-.377 1.544a3.04 3.04 0 0 1-1.091 1.167q-.715.433-1.77.433m-.018-1.807q.602 0 .922-.396.32-.394.32-.922 0-.508-.32-.904-.32-.395-.922-.395-.584 0-.923.395-.32.396-.32.904 0 .527.32.922.34.396.922.396"/>'} />;
 }
+// Reusable "lookup" magnifier glyph (evenodd ring + handle), same fill-only
+// technique cas.so uses for its own product icons — appended to the custom
+// icons below that don't have a real cas.so asset yet.
+const lookupGlyph = '<circle cx="16.8" cy="16.8" r="2.9" fill="none" stroke="currentColor" stroke-width="1.7"/><line x1="18.9" y1="18.9" x2="21.6" y2="21.6" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>';
+
 function IconInvoiceLookup() {
-  return <svg viewBox="0 0 24 24" fill="none"><path d="M5 3h8l3 3v11H5V3Z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" /><path d="M8 8h5M8 11h5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" /><circle cx="16.5" cy="16.5" r="3" stroke="currentColor" strokeWidth="1.5" /><path d="M18.7 18.7 21 21" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" /></svg>;
+  // custom — styled to match the cas.so product icons (translucent badge + solid currentColor glyph)
+  return <ProductIcon html={'<path fill="rgba(255,255,255,.16)" d="M5 2h9l5 5v15H5z"/><rect x="7.5" y="8.3" width="7" height="1.7" rx="0.85" fill="currentColor"/><rect x="7.5" y="11.6" width="7" height="1.7" rx="0.85" fill="currentColor"/><rect x="7.5" y="14.9" width="4" height="1.7" rx="0.85" fill="currentColor"/>' + lookupGlyph} />;
 }
 function IconETax() {
-  return <svg viewBox="0 0 24 24" fill="none"><path d="M3 20h18M4 20V10l8-5 8 5v10" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" /><path d="M9 20v-6h6v6" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" /></svg>;
+  // custom — styled to match the cas.so product icons (translucent badge + solid currentColor glyph)
+  return <ProductIcon html={'<circle cx="12" cy="12" r="9.5" fill="rgba(255,255,255,.16)"/><rect x="7" y="13" width="2.4" height="5" rx="1" fill="currentColor"/><rect x="10.8" y="9.5" width="2.4" height="8.5" rx="1" fill="currentColor"/><rect x="14.6" y="6" width="2.4" height="12" rx="1" fill="currentColor"/>'} />;
 }
 function IconPayOut() {
-  return <svg viewBox="0 0 24 24" fill="none"><path d="M5 12h13M13 6l6 6-6 6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" transform="rotate(180 12 12)" /></svg>;
-}
-function IconPaymentInitiation() {
-  return <svg viewBox="0 0 24 24" fill="none"><path d="M6 3h9l3 3v15H6V3Z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" /><circle cx="16" cy="17" r="4.2" fill="#171827" stroke="currentColor" strokeWidth="1.4" /><path d="M14.3 17l1.2 1.2 2.2-2.4" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" /></svg>;
+  // https://cas.so/product/pay-out/ (also used by Payment Initiation)
+  return <ProductIcon html={'<path fill="rgba(255,255,255,.16)" d="M9.534 11.24c-.712.42-.712 1.1 0 1.52l8.356 4.923c1.147.677 3.11.198 3.11-.759V7.076c0-.957-1.963-1.436-3.11-.76z"/><path fill="currentColor" fill-rule="evenodd" d="M3 12c0-.7.37-1.333.968-1.77l9.052-6.608c.929-.679 2.127-.749 3.066-.465C17.002 3.434 18 4.178 18 5.391V18.61c0 1.213-.998 1.957-1.915 2.234-.938.284-2.136.213-3.065-.465L3.968 13.77C3.37 13.333 3 12.7 3 12m2 0c0 .038.016.143.189.269l9.052 6.609c.314.23.8.292 1.236.16.458-.139.523-.358.523-.43V5.392c0-.071-.065-.29-.523-.429-.435-.132-.922-.07-1.236.16l-9.052 6.61c-.173.126-.189.23-.189.268" clip-rule="evenodd"/>'} />;
 }
 function IconMstLookup() {
-  return <svg viewBox="0 0 24 24" fill="none"><rect x="3" y="6" width="14" height="11" rx="2" stroke="currentColor" strokeWidth="1.5" /><path d="M6.5 10h7M6.5 13h4.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" /><circle cx="17.5" cy="17.5" r="3" fill="#171827" stroke="currentColor" strokeWidth="1.4" /><path d="M19.6 19.6 21.5 21.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" /></svg>;
+  // custom — styled to match the cas.so product icons (translucent badge + solid currentColor glyph)
+  return <ProductIcon html={'<rect x="2" y="4.5" width="14.5" height="11" rx="2" fill="rgba(255,255,255,.16)"/><rect x="4.5" y="8" width="9.5" height="1.6" rx="0.8" fill="currentColor"/><rect x="4.5" y="11" width="6" height="1.6" rx="0.8" fill="currentColor"/>' + lookupGlyph} />;
 }
 function IconTaxpayerLookup() {
-  return <svg viewBox="0 0 24 24" fill="none"><circle cx="10" cy="8" r="3" stroke="currentColor" strokeWidth="1.5" /><path d="M4.5 19c0-3.3 2.6-5.5 5.5-5.5s5.5 2.2 5.5 5.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" /><circle cx="18" cy="17.5" r="3" fill="#171827" stroke="currentColor" strokeWidth="1.4" /><path d="M20.1 19.6 22 21.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" /></svg>;
+  // custom — styled to match the cas.so product icons (translucent badge + solid currentColor glyph)
+  return <ProductIcon html={'<circle cx="9.5" cy="12" r="9" fill="rgba(255,255,255,.16)"/><circle cx="9.5" cy="8.2" r="2.7" fill="currentColor"/><path fill="currentColor" fill-rule="evenodd" d="M9.5 12.2c-3 0-5.4 2-5.4 4.6v1.1a9 9 0 0 0 10.8 0v-1.1c0-2.6-2.4-4.6-5.4-4.6z" clip-rule="evenodd"/>' + lookupGlyph} />;
 }
 function IconAccountLookup() {
-  return <svg viewBox="0 0 24 24" fill="none"><rect x="2.5" y="5" width="15" height="11" rx="2.5" stroke="currentColor" strokeWidth="1.5" /><path d="M2.5 9h15" stroke="currentColor" strokeWidth="1.5" /><path d="M5.5 13h4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" /><circle cx="17.8" cy="17.8" r="3" fill="#171827" stroke="currentColor" strokeWidth="1.4" /><path d="M19.9 19.9 21.8 21.8" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" /></svg>;
+  // custom — styled to match the cas.so product icons (translucent badge + solid currentColor glyph)
+  return <ProductIcon html={'<rect x="1.5" y="5" width="15" height="11" rx="2.5" fill="rgba(255,255,255,.16)"/><rect x="1.5" y="8.5" width="15" height="2.3" fill="currentColor"/><rect x="4" y="12.5" width="4.5" height="1.6" rx="0.8" fill="currentColor"/>' + lookupGlyph} />;
 }
 function IconDeeplink() {
-  return <svg viewBox="0 0 24 24" fill="none"><path d="M10 14 14 10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" /><path d="M8.5 15.8 6.7 17.6a3 3 0 0 1-4.2-4.2l2.3-2.3a3 3 0 0 1 4.2 0" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /><path d="M15.5 8.2 17.3 6.4a3 3 0 0 1 4.2 4.2l-2.3 2.3a3 3 0 0 1-4.2 0" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>;
+  // https://cas.so/product/deeplink/
+  return <ProductIcon html={'<path fill="rgba(255,255,255,.16)" d="M9 9.733C9 9.328 9.328 9 9.733 9h9.534c.405 0 .733.328.733.733v9.534a.733.733 0 0 1-.733.733H9.733A.733.733 0 0 1 9 19.267z"/><path fill="currentColor" d="M3 1c-1.11 0-2 .89-2 2v11c0 1.11.89 2 2 2h11c1.11 0 2-.89 2-2v-3h-2v3H3V3h11v2h2V3c0-1.11-.89-2-2-2M9 7c-1.11 0-2 .89-2 2v3h2V9h11v11H9v-2H7v2c0 1.11.89 2 2 2h11c1.11 0 2-.89 2-2V9c0-1.11-.89-2-2-2z"/>'} />;
 }
 
 const serviceGroups: { title: { vi: string; en: string }; items: { icon: () => React.JSX.Element; vi: string; en: string; descVi: string; descEn: string }[] }[] = [
@@ -102,14 +124,15 @@ const serviceGroups: { title: { vi: string; en: string }; items: { icon: () => R
     title: { vi: "CHUYỂN TIỀN", en: "TRANSFERS" },
     items: [
       { icon: IconPayOut, vi: "Pay Out", en: "Pay Out", descVi: "Chi hộ", descEn: "Initiate transfer orders via API" },
-      { icon: IconPaymentInitiation, vi: "Payment Initiation", en: "Payment Initiation", descVi: "Lập lệnh cần duyệt", descEn: "Create orders pending approval" },
+      { icon: IconPayOut, vi: "Payment Initiation", en: "Payment Initiation", descVi: "Lập lệnh cần duyệt", descEn: "Create orders pending approval" },
     ],
   },
   {
     title: { vi: "KẾ TOÁN", en: "ACCOUNTING" },
     items: [
-      { icon: IconInvoice, vi: "Invoice Hub", en: "Invoice Hub", descVi: "Tạo hoá đơn điện tử", descEn: "Generate e-invoices" },
+      { icon: IconPercent, vi: "Invoice Hub", en: "Invoice Hub", descVi: "Tạo hoá đơn điện tử", descEn: "Generate e-invoices" },
       { icon: IconInvoiceLookup, vi: "Invoice", en: "Invoice", descVi: "Tra cứu hoá đơn", descEn: "Look up invoices" },
+      { icon: IconPercent, vi: "TVAN", en: "TVAN", descVi: "Phát hành hoá đơn", descEn: "Issue e-invoices" },
       { icon: IconETax, vi: "eTax", en: "eTax", descVi: "Tra cứu báo cáo kinh doanh", descEn: "Look up business reports" },
     ],
   },
